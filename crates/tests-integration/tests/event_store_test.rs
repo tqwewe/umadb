@@ -1,4 +1,3 @@
-// gRPC client sync trait support has been removed; tests use the local EventStore
 use std::net::TcpListener;
 use tempfile::tempdir;
 use tokio::runtime::Builder as RtBuilder;
@@ -9,7 +8,6 @@ use umadb_dcb::{
 };
 use umadb_server::start_server;
 use uuid::Uuid;
-// Import the EventStore and related types from the main crate
 
 // Helper function to run the test with implementations of the DCBEventStoreSync trait
 pub fn dcb_event_store_test<T: DCBEventStoreSync>(event_store: &T) {

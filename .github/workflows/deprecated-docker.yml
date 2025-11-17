@@ -1,9 +1,10 @@
 name: Build and Publish Multi-Platform Docker Image
 
 on:
-  push:
-    tags:
-      - 'v*.*.*'
+  workflow_dispatch
+#  push:
+#    tags:
+#      - 'v*.*.*'
 #    branches:
 #      - main
 env:
@@ -72,7 +73,7 @@ jobs:
 
       - name: Build release binary
         run: |
-          cargo build --release --target ${{ matrix.target }} -p umadb-server
+          cargo build --release --target ${{ matrix.target }} -p umadb
 
       # Strip the binary
       - name: Strip release binary

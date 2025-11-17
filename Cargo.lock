@@ -2064,6 +2064,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tests-integration"
+version = "0.0.0"
+dependencies = [
+ "rcgen",
+ "tempfile",
+ "tokio",
+ "tonic",
+ "tonic-health",
+ "umadb-client",
+ "umadb-core",
+ "umadb-dcb",
+ "umadb-server",
+ "uuid",
+]
+
+[[package]]
 name = "thiserror"
 version = "2.0.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2330,20 +2346,9 @@ checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
 name = "umadb"
 version = "0.1.21"
 dependencies = [
- "criterion 0.7.0",
- "futures",
- "pprof",
- "rcgen",
- "tempfile",
+ "clap",
  "tokio",
- "tonic",
- "tonic-health",
- "umadb-benches",
- "umadb-client",
- "umadb-core",
- "umadb-dcb",
  "umadb-server",
- "uuid",
 ]
 
 [[package]]
@@ -2430,7 +2435,6 @@ name = "umadb-server"
 version = "0.1.21"
 dependencies = [
  "async-trait",
- "clap",
  "futures",
  "tokio",
  "tokio-stream",

@@ -6,17 +6,19 @@ members = [
   "crates/proto",
   "crates/server",
   "crates/client",
+  "crates/umadb",
+  "crates/python",
+
+  # Internal
   "crates/benches",
-  "crates/python"
+  "crates/tests-integration",
 ]
 resolver = "2"
 
-# crates that build when running `cargo build` at the workspace root
-default-members = [
-  "crates/server"
-]
 exclude = [
-  "crates/python"
+  "crates/python",
+  "crates/tests-integration",
+  "crates/benches",
 ]
 [workspace.package]
 version = "0.1.21"
@@ -41,39 +43,6 @@ serial_test = "3.2.0"
 push = false
 tag = false
 rate-limit.new-packages = 6
-
-[package]
-name = "umadb"
-description = "Event store built for Dynamic Consistency Boundaries"
-repository = { workspace = true }
-version = { workspace = true }
-edition = { workspace = true }
-license = { workspace = true }
-
-# Exclude specific files from the published package
-exclude = [
-  "server.key",
-  "server.pem",
-]
-
-[dependencies]
-umadb-dcb = { path = "crates/dcb", version = "0.1.21" }
-umadb-core = { path = "crates/core", version = "0.1.21" }
-umadb-client = { path = "crates/client", version = "0.1.21" }
-umadb-server = { path = "crates/server", version = "0.1.21" }
-futures = { workspace = true }
-tokio = { workspace = true }
-tonic = { workspace = true }
-tonic-health = { workspace = true }
-
-[dev-dependencies]
-umadb-benches = { path = "crates/benches" }
-# Add test dependencies as needed
-tempfile = "3.23.0"
-criterion = { version = "0.7.0", features = ["html_reports", "csv_output"] }
-pprof = { version = "0.15.0", features = ["criterion", "flamegraph"] }
-rcgen = "0.12"
-uuid = { workspace = true }
 
 [profile.test]
 ## Keep DWARF info so perf/dtrace can unwind and symbolize
@@ -108,7 +77,3 @@ strip = "none"      # requires a sufficiently recent Rust toolchain
 ##split-debuginfo = "off"       # Linux
 split-debuginfo = "unpacked" # macOS
 
-[features]
-default = []
-flamegraphs = []
-examples = []

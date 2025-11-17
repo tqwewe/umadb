@@ -1,0 +1,31 @@
+[package]
+name = "tests-integration"
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+
+
+[dependencies]
+umadb-dcb = { path = "../dcb" }
+umadb-core = { path = "../core" }
+umadb-client = { path = "../client" }
+umadb-server = { path = "../server" }
+#futures = { workspace = true }
+tokio = { workspace = true }
+tonic = { workspace = true }
+tonic-health = { workspace = true }
+
+#umadb-benches = { path = "../benches" }
+
+# Add test dependencies as needed
+tempfile = "3.23.0"
+#criterion = { version = "0.7.0", features = ["html_reports", "csv_output"] }
+#pprof = { version = "0.15.0", features = ["criterion", "flamegraph"] }
+rcgen = "0.12"
+uuid = { workspace = true }
+
+[features]
+default = []
+flamegraphs = []
+examples = []

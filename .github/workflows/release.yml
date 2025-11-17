@@ -4,158 +4,160 @@ on:
   push:
     tags:
       - 'v*.*.*'
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to release'
-        required: true
+    branches:
+      - main
+
+#  workflow_dispatch:
+#    inputs:
+#      tag:
+#        description: 'Tag to release'
+#        required: true
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build-binaries:
-    name: Build ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         include:
-          # Linux x86_64
+          # Linux GNU
           - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: umadb
-            asset_name: umadb-linux-amd64
-          
-          # Linux aarch64
+            rust_target: x86_64-unknown-linux-gnu
           - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact_name: umadb
-            asset_name: umadb-linux-arm64
-          
-          # macOS x86_64
+            rust_target: aarch64-unknown-linux-gnu
+          # Linux MUSL
+          - os: ubuntu-latest
+            rust_target: x86_64-unknown-linux-musl
+          - os: ubuntu-latest
+            rust_target: aarch64-unknown-linux-musl
+          # macOS
           - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: umadb
-            asset_name: umadb-macos-amd64
-          
-          # macOS aarch64
+            rust_target: x86_64-apple-darwin
           - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: umadb
-            asset_name: umadb-macos-arm64
-          
-#          # Windows x86_64
-#          - os: windows-latest
-#            target: x86_64-pc-windows-msvc
-#            artifact_name: umadb.exe
-#            asset_name: umadb-windows-amd64.exe
-#
-#          # Windows aarch64
-#          - os: windows-latest
-#            target: aarch64-pc-windows-msvc
-#            artifact_name: umadb.exe
-#            asset_name: umadb-windows-arm64.exe
-    
+            rust_target: aarch64-apple-darwin
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
+      - uses: actions/checkout@v4
 
-    - name: Install Protoc
-      uses: arduino/setup-protoc@v3
-      with:
-        repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust_target }}
 
-    - name: Install cross-compilation tools (Linux aarch64)
-      if: matrix.target == 'aarch64-unknown-linux-gnu'
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y gcc-aarch64-linux-gnu
-    
-    - name: Configure cargo for cross-compilation (Linux aarch64)
-      if: matrix.target == 'aarch64-unknown-linux-gnu'
-      run: |
-        mkdir -p .cargo
-        cat >> .cargo/config.toml << EOF
-        [target.aarch64-unknown-linux-gnu]
-        linker = "aarch64-linux-gnu-gcc"
-        EOF
-    
-    - name: Cache cargo registry
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ matrix.target }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo index
-      uses: actions/cache@v4
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ matrix.target }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Cache cargo build
-      uses: actions/cache@v4
-      with:
-        path: target
-        key: ${{ runner.os }}-${{ matrix.target }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
-    
-    - name: Build binary
-      run: cargo build --release --target ${{ matrix.target }} -p umadb-server
-    
-    - name: Strip binary (Linux aarch64)
-      if: matrix.target == 'aarch64-unknown-linux-gnu'
-      run: aarch64-linux-gnu-strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+      - name: Build binary
+        run: make build-cross-umadb-${{ matrix.rust_target }}
 
-    - name: Strip binary (other Unix platforms)
-      if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-unknown-linux-gnu'
-      run: strip target/${{ matrix.target }}/release/${{ matrix.artifact_name }}
+      - name: Test binary
+        run: make test-cross-umadb-${{ matrix.rust_target }}
 
-    - name: Create archive
-      shell: bash
-      run: |
-        cd target/${{ matrix.target }}/release
-        if [ "${{ matrix.os }}" = "windows-latest" ]; then
-          7z a ../../../${{ matrix.asset_name }}.zip ${{ matrix.artifact_name }}
-        else
-          tar czf ../../../${{ matrix.asset_name }}.tar.gz ${{ matrix.artifact_name }}
-        fi
-    
-    - name: Upload binary artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: ${{ matrix.asset_name }}
-        path: |
-          ${{ matrix.asset_name }}.tar.gz
-          ${{ matrix.asset_name }}.zip
-        if-no-files-found: ignore
-  
+      - name: Archive artifact
+        run: |
+          cd target/${{ matrix.rust_target }}/release
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            7z a ../../../umadb-${{ matrix.rust_target }}.zip umadb-${{ matrix.rust_target }}
+          else
+            tar czf ../../../umadb-${{ matrix.rust_target }}.tar.gz umadb-${{ matrix.rust_target }}
+          fi
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: umadb-${{ matrix.rust_target }}
+          path: |
+            umadb-${{ matrix.rust_target }}.tar.gz
+            umadb-${{ matrix.rust_target }}.zip
+          if-no-files-found: ignore
+
   create-release:
-    name: Create Release
+    name: Create GitHub Release
     needs: build-binaries
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Download all artifacts
-      uses: actions/download-artifact@v4
-      with:
-        path: artifacts
-    
-    - name: Display structure of downloaded files
-      run: ls -R artifacts
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ github.event.inputs.tag || github.ref_name }}
-        name: Release ${{ github.event.inputs.tag || github.ref_name }}
-        draft: false
-        prerelease: false
-        files: |
-          artifacts/**/*.tar.gz
-          artifacts/**/*.zip
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v4
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: List downloaded artifacts
+        run: ls -R artifacts
+
+#      - name: Create Release
+#        uses: softprops/action-gh-release@v1
+#        with:
+#          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+#          name: Release ${{ github.event.inputs.tag || github.ref_name }}
+#          draft: false
+#          prerelease: false
+#          files: artifacts/**/*.tar.gz
+
+  docker:
+    name: Create Docker Images
+    runs-on: ubuntu-latest
+    needs: build-binaries
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download binaries
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare binaries for Docker
+        run: |
+          mkdir -p ./binaries/linux/amd64
+          mkdir -p ./binaries/linux/arm64
+
+          # Extract Linux x86_64 MUSL binary
+          tar xzf artifacts/umadb-x86_64-unknown-linux-musl/umadb-x86_64-unknown-linux-musl.tar.gz -C ./binaries/linux/amd64
+          chmod +x ./binaries/linux/amd64/umadb
+
+          # Extract Linux aarch64 MUSL binary
+          tar xzf artifacts/umadb-aarch64-unknown-linux-musl/umadb-aarch64-unknown-linux-musl.tar.gz -C ./binaries/linux/arm64
+          chmod +x ./binaries/linux/arm64/umadb
+
+          # List for debugging
+          ls -lh ./binaries/linux/amd64
+          ls -lh ./binaries/linux/arm64
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Generate Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY_IMAGE_GHCR }},${{ env.REGISTRY_IMAGE_DH }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable=true
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+#      - name: Build and push multi-arch image
+#        uses: docker/build-push-action@v6
+#        with:
+#          context: .
+#          file: Dockerfile
+#          platforms: linux/amd64,linux/arm64
+#          push: true
+#          tags: ${{ steps.meta.outputs.tags }}
+#          labels: ${{ steps.meta.outputs.labels }}
+#          provenance: mode=max
+#          sbom: true
