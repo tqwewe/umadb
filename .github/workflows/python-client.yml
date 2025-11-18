@@ -44,6 +44,15 @@ jobs:
           rustup target add x86_64-apple-darwin
           rustup target add aarch64-apple-darwin
 
+      # Only enable QEMU on Linux runners (for aarch64 on linux)
+      - name: Setup QEMU
+        if: runner.os == 'Linux'
+        uses: docker/setup-qemu-action@v1
+
+      - name: Enable binfmt (for multiarch Docker)
+        if: runner.os == 'Linux'
+        uses: docker/setup-buildx-action@v2
+
       - name: Build wheels
         uses: pypa/cibuildwheel@v3.3.0
         env:
@@ -51,8 +60,9 @@ jobs:
           CIBW_BUILD: "cp310-*"
 
           # Build for all relevant architectures
-          CIBW_ARCHS_LINUX: "x86_64"
+#          CIBW_ARCHS_LINUX: "x86_64"
 #          CIBW_ARCHS_LINUX: "x86_64 aarch64"   aarch64 fails, probably need QEMU?
+          CIBW_ARCHS_LINUX: "x86_64 aarch64"  # try again with aarch64
           CIBW_ARCHS_MACOS: "universal2"
 #          CIBW_ARCHS_WINDOWS: "x86 AMD64"  x86 gives linker errors when compiling protoc
           CIBW_ARCHS_WINDOWS: "AMD64"
