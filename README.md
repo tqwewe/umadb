@@ -26,19 +26,19 @@ UmaDB makes new events fully durable before acknowledgements are returned to cli
 
 ## Quick Start
 
-Run Docker image.
+Run Docker image (publish port 50051).
 
 ```
-docker run umadb/umadb:latest
+docker run --publish 50051:50051 umadb/umadb:latest
 ```
 
-Install Python client.
+Install Python client (in a virtual environment).
 
 ```
 pip install umadb
 ```
 
-Read and write events.
+Read and write events (using the Python client).
 
 ```python
 from umadb import Client, Event
