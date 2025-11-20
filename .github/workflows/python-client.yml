@@ -99,7 +99,7 @@ jobs:
             from umadb import Client, Event
 
             # Connect to UmaDB server
-            client = Client("http://localhost:50051")
+            client = Client("http://umadb-server:50051")
             
             # Create and append events
             event = Event(
@@ -200,7 +200,7 @@ jobs:
             from umadb import Client, Event
 
             # Connect to UmaDB server
-            client = Client("http://localhost:50051")
+            client = Client("http://umadb-server:50051")
             
             # Create and append events
             event = Event(
