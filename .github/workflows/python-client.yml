@@ -146,11 +146,11 @@ jobs:
             --platform ${{ matrix.platform.test-on-docker-platform }}
           run: |
             apk add --no-cache python3 py3-pip
+            python3 -m venv /venv
+            . /venv/bin/activate
             cd /work/dist
-            # Install your musllinux wheel
             pip install *.whl
-            # Import test
-            python3 -c "import umadb; print('OK')"
+            python -c "import umadb; print('musllinux OK')"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
