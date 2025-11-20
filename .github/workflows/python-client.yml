@@ -41,10 +41,15 @@ jobs:
           rustup target add x86_64-apple-darwin
           rustup target add aarch64-apple-darwin
 
+      - name: Install Protoc  # I think we only need this for macos?
+        uses: arduino/setup-protoc@v3
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+
 #      - name: Install build tools
 #        run: pip install maturin cibuildwheel
 #
-#       Only enable QEMU on Linux runners (for aarch64 on linux?)?
+#       Only enable QEMU on Linux runners (for aarch64 on linux?)
       - name: Setup QEMU
         if: runner.os == 'Linux'
         uses: docker/setup-qemu-action@v1
