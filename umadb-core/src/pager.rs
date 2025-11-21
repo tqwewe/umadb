@@ -474,8 +474,8 @@ pub fn preallocate(file: &File, len: u64) -> io::Result<()> {
                 file.set_len(new_len)?;
                 return Ok(());
             }
-        } else {
-            println!("Success with contiguous file allocation");
+        // } else {
+        //     println!("Success with contiguous file allocation");
         }
 
         // Now extend file size (macOS requirement)
