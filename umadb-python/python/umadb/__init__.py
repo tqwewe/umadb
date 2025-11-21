@@ -17,7 +17,7 @@ from umadb._umadb import (
     CorruptionError,
 )
 
-__version__ = "0.1.22"
+__version__ = "0.1.23"
 
 __all__ = [
     "Client",
