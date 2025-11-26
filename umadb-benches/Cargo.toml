@@ -72,4 +72,3 @@ harness = false
 [[bin]]
 name = "throughput_vs_volume"
 path = "src/bin/throughput_vs_volume.rs"
-harness = false
