@@ -34,21 +34,24 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::from_arg_matches(&matches)?; // <-- FromArgMatches trait
 
     // Connect to UmaDB instance at 127.0.0.1:50051
-    let client = Arc::new(UmaDBClient::new(args.db_url.clone())
-        .connect_async()
-        .await
-        .expect("Failed to connect to UmaDB"));
+    let client = Arc::new(
+        UmaDBClient::new(args.db_url.clone())
+            .connect_async()
+            .await
+            .expect("Failed to connect to UmaDB"),
+    );
 
     println!("Connected to UmaDB at {}", args.db_url.clone());
-
 
     // Open log file for appending measurements
     let log_path = args.log_path;
     println!("Logging measurements to {}", log_path.clone());
-    let log_file = Arc::new(OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(log_path)?);
+    let log_file = Arc::new(
+        OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(log_path)?,
+    );
 
     let shutdown = tokio::signal::ctrl_c();
     pin!(shutdown); // <-- this makes it Unpin-safe
@@ -69,7 +72,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-async fn do_some_work (client: Arc<AsyncUmaDBClient>, mut log_file: Arc<File>) -> std::io::Result<()> {
+async fn do_some_work(
+    client: Arc<AsyncUmaDBClient>,
+    mut log_file: Arc<File>,
+) -> std::io::Result<()> {
     let mut batch_count = 0u64;
     // Append 9800 batches of 10 events each
     for _ in 0..99 {
