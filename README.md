@@ -582,7 +582,7 @@ The container's `ENTRYPOINT` is the `umadb` binary. By default, it is invoked wi
 
 `--listen 0.0.0.0:50051 --db-path /data`
 
-This means the container will start umadb listening on port **50051** and using **/data/uma.db** as the database file.
+This means the container will start UmaDB listening on port **50051** and using **/data/uma.db** as the database file.
 
 You may override the default arguments by supplying your own (e.g., `--help`, `--version`, or any other umadb options).
 
