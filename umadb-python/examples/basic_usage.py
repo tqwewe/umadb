@@ -14,7 +14,7 @@ import uuid
 from umadb import Client, Event, Query, QueryItem, AppendCondition, IntegrityError
 
 
-def main():
+def main() -> None:
     # Connect to UmaDB server (make sure server is running)
     print("Connecting to UmaDB server...")
     client = Client("http://localhost:50051")

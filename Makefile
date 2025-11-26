@@ -42,8 +42,16 @@ build:
 build-workspace-exclude-python:
 	cargo build --workspace --exclude umadb-python
 
-build-umadb-python:
+maturin-python-stubs:
+	$(MAKE) maturin-python-develop
+	python3 ./umadb-python/generate_stubs.py
+	mypy --strict ./umadb-python --exclude generate_stubs.py
+
+maturin-python-develop:
 	PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop -m umadb-python/Cargo.toml
+
+maturin-python-build:
+	PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin build --release -m umadb-python/Cargo.toml
 
 test:
 	$(MAKE) test-workspace-exclude-python

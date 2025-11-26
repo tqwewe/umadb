@@ -2,6 +2,8 @@ use pyo3::exceptions::{PyException, PyKeyboardInterrupt, PyRuntimeError, PyValue
 use pyo3::prelude::*;
 use pyo3::types::PyBytes;
 use pyo3::wrap_pyfunction;
+use pyo3_stub_gen::define_stub_info_gatherer;
+use pyo3_stub_gen::derive::*;
 use std::sync::Arc;
 use umadb_client::{SyncUmaDBClient, UmaDBClient, trigger_cancel};
 use umadb_dcb::{
@@ -28,12 +30,14 @@ fn dcb_error_to_py_err(err: DCBError) -> PyErr {
 }
 
 /// Python wrapper for DCBEvent
+#[gen_stub_pyclass]
 #[pyclass(name = "Event")]
 #[derive(Clone)]
 pub struct PyEvent {
     inner: DCBEvent,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyEvent {
     #[new]
@@ -95,11 +99,13 @@ impl PyEvent {
 }
 
 /// Python wrapper for DCBSequencedEvent
+#[gen_stub_pyclass]
 #[pyclass(name = "SequencedEvent")]
 pub struct PySequencedEvent {
     inner: DCBSequencedEvent,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PySequencedEvent {
     #[getter]
@@ -123,12 +129,14 @@ impl PySequencedEvent {
 }
 
 /// Python wrapper for DCBQueryItem
+#[gen_stub_pyclass]
 #[pyclass(name = "QueryItem")]
 #[derive(Clone)]
 pub struct PyQueryItem {
     inner: DCBQueryItem,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyQueryItem {
     #[new]
@@ -151,12 +159,14 @@ impl PyQueryItem {
 }
 
 /// Python wrapper for DCBQuery
+#[gen_stub_pyclass]
 #[pyclass(name = "Query")]
 #[derive(Clone)]
 pub struct PyQuery {
     inner: DCBQuery,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyQuery {
     #[new]
@@ -179,12 +189,14 @@ impl PyQuery {
 }
 
 /// Python wrapper for DCBAppendCondition
+#[gen_stub_pyclass]
 #[pyclass(name = "AppendCondition")]
 #[derive(Clone)]
 pub struct PyAppendCondition {
     inner: DCBAppendCondition,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyAppendCondition {
     #[new]
@@ -204,19 +216,23 @@ impl PyAppendCondition {
 }
 
 /// Python iterator over sequenced events
+#[gen_stub_pyclass]
 #[pyclass(name = "ReadResponse", unsendable)]
 pub struct PyReadResponse {
     // _client: Arc<SyncUmaDBClient>,
     inner: Box<dyn Iterator<Item = Result<DCBSequencedEvent, DCBError>> + 'static>,
 }
 
+#[gen_stub_pymethods()]
 #[pymethods]
 impl PyReadResponse {
     fn __iter__(slf: PyRef<Self>) -> PyRef<Self> {
         slf
     }
 
-    fn __next__(mut slf: PyRefMut<Self>) -> Option<PyResult<PySequencedEvent>> {
+    fn __next__(
+        mut slf: PyRefMut<Self>
+    ) -> Option<PyResult<PySequencedEvent>> {
         match slf.inner.next() {
             Some(Ok(event)) => Some(Ok(PySequencedEvent { inner: event })),
             Some(Err(err)) => Some(Err(dcb_error_to_py_err(err))),
@@ -226,11 +242,13 @@ impl PyReadResponse {
 }
 
 /// Python wrapper for the synchronous UmaDB client
+#[gen_stub_pyclass]
 #[pyclass(name = "Client")]
 pub struct PyUmaDBClient {
     inner: Arc<SyncUmaDBClient>,
 }
 
+#[gen_stub_pymethods]
 #[pymethods]
 impl PyUmaDBClient {
     /// Create a new UmaDB client
@@ -337,6 +355,26 @@ fn trigger_cancel_from_python() {
     trigger_cancel();
 }
 
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+/// Triggers cancellation of all UmaDB subscriptions from Python.
+/// Useful if you want to handle SIGINT in Python code and manually
+/// notify the Rust client to stop reading.
+fn trigger_cancel_from_python2() {
+    println!("In stub info");
+}
+
+// Define a function to gather stub information.
+define_stub_info_gatherer!(generate_umadb_pyi_stubs);
+
+#[pyfunction]
+#[pyo3(text_signature = "()")]
+// Generate stubs
+fn _generate_umadb_pyi_stubs() {
+    let stub = generate_umadb_pyi_stubs().expect("couldn't derive stubs");
+    stub.generate().expect("couldn't generate stubs");
+}
+
 /// UmaDB Python client module
 #[pymodule]
 fn _umadb(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -348,6 +386,8 @@ fn _umadb(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PyQueryItem>()?;
     m.add_class::<PyAppendCondition>()?;
     m.add_function(wrap_pyfunction!(trigger_cancel_from_python, m)?)?;
+    m.add_function(wrap_pyfunction!(trigger_cancel_from_python2, m)?)?;
+    m.add_function(wrap_pyfunction!(_generate_umadb_pyi_stubs, m)?)?;
     m.add("IntegrityError", py.get_type::<IntegrityError>())?;
     m.add("TransportError", py.get_type::<TransportError>())?;
     m.add("CorruptionError", py.get_type::<CorruptionError>())?;

@@ -4,7 +4,6 @@
 /test-data
 /server.key
 /server.pem
-/umadb-python/python/umadb/_umadb.cpython-314-darwin.so
 /docker-compose.yaml
 /performance-reports/
 /perf_analysis_*/
