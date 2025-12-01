@@ -1,10 +1,11 @@
 [package]
-description = "Python bindings for UmaDB event store client"
 name = "umadb-python"
-version = "0.1.26"
-edition = "2024"
-license = "MIT OR Apache-2.0"
-repository = "https://github.com/umadb-io/umadb"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
+description = "Python bindings for UmaDB event store client"
 keywords = ["event-store", "grpc", "client", "python"]
 categories = ["database", "network-programming"]
 publish = false

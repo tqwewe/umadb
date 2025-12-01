@@ -1,10 +1,11 @@
 [package]
 name = "umadb-dcb"
-version = { workspace = true }
-edition = { workspace = true }
-license = { workspace = true }
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "Dynamic Consistency Boundary (DCB) API - Core types and traits for UmaDB event store"
-repository = "https://github.com/umadb-io/umadb"
 readme = "README.md"
 keywords = ["event-store", "event-sourcing", "database", "dcb"]
 categories = ["database"]

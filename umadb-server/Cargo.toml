@@ -1,10 +1,11 @@
 [package]
 name = "umadb-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "gRPC server implementation for UmaDB event store"
-repository = "https://github.com/umadb-io/umadb"
-version = { workspace = true }
-edition = { workspace = true }
-license = { workspace = true }
 readme = "README.md"
 keywords = ["event-store", "grpc", "server"]
 categories = ["database", "network-programming"]
