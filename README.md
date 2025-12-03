@@ -192,7 +192,7 @@ UmaDB persists all data in a single paged file, using three specialized B+ trees
 different access patterns.
 
 Two header nodes act as the entry point for all data structures and track the current
-transaction sequence number (TSN), head position, and next never-unallocated page ID.
+transaction sequence number (TSN), head position, and next never-allocated page ID.
 
 UmaDB maintains three specialized B+ trees in the same paged file:
 
