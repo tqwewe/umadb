@@ -1,4 +1,4 @@
-![UmaDB Logo](images/UmaDB-logo.png)
+![UmaDB Logo](images/UmaDB-brand-figure-torso-and-lettering.png)
 
 # What is UmaDB
 
