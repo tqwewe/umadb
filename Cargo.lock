@@ -2388,6 +2388,7 @@ dependencies = [
 name = "tests-integration"
 version = "0.0.0"
 dependencies = [
+ "futures",
  "http-body-util",
  "hyper",
  "hyper-util",

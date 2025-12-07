@@ -61,7 +61,10 @@ pub trait DCBReadResponseSync: Iterator<Item = Result<DCBSequencedEvent, DCBErro
     fn head(&mut self) -> DCBResult<Option<u64>>;
     /// Returns a vector of events with head
     fn collect_with_head(&mut self) -> DCBResult<(Vec<DCBSequencedEvent>, Option<u64>)>;
-    /// Returns a batch of events, updating head with the last event in the batch if there is one and if limit.is_some() is true
+    /// Returns the next batch of events for this read. Implementations may buffer
+    /// events per underlying transport message ("batch"). If there are no more
+    /// events available, returns an empty Vec. The head() method should reflect
+    /// the latest known head as reported by the underlying store.
     fn next_batch(&mut self) -> DCBResult<Vec<DCBSequencedEvent>>;
 }
 

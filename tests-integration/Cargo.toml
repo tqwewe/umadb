@@ -12,7 +12,7 @@ umadb-core = { path = "../umadb-core" }
 umadb-client = { path = "../umadb-client" }
 umadb-server = { path = "../umadb-server" }
 umadb-proto = { path = "../umadb-proto" }
-#futures = { workspace = true }
+futures = { workspace = true }
 tokio = { workspace = true }
 tonic = { workspace = true }
 tonic-health = { workspace = true }
@@ -29,6 +29,7 @@ tempfile = "3.23.0"
 #pprof = { version = "0.15.0", features = ["criterion", "flamegraph"] }
 rcgen = "0.12"
 uuid = { workspace = true }
+#futures-util = "0.3.31"
 
 [features]
 default = []
