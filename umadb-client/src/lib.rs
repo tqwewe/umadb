@@ -189,7 +189,7 @@ impl DCBEventStoreSync for SyncUmaDBClient {
         )?;
         Ok(Box::new(SyncClientReadResponse {
             rt: self.handle.clone(),
-            resp: async_read_response,
+            async_resp: async_read_response,
             buffer: VecDeque::new(),
             finished: false,
         }))
@@ -211,7 +211,7 @@ impl DCBEventStoreSync for SyncUmaDBClient {
 
 pub struct SyncClientReadResponse {
     rt: Handle,
-    resp: Box<dyn DCBReadResponseAsync + Send + 'static>,
+    async_resp: Box<dyn DCBReadResponseAsync + Send + 'static>,
     buffer: VecDeque<DCBSequencedEvent>, // efficient pop_front()
     finished: bool,
 }
@@ -223,7 +223,7 @@ impl SyncClientReadResponse {
             return Ok(());
         }
 
-        let batch = self.rt.block_on(self.resp.next_batch())?;
+        let batch = self.rt.block_on(self.async_resp.next_batch())?;
         if batch.is_empty() {
             self.finished = true;
         } else {
@@ -250,7 +250,7 @@ impl Iterator for SyncClientReadResponse {
 
 impl DCBReadResponseSync for SyncClientReadResponse {
     fn head(&mut self) -> DCBResult<Option<u64>> {
-        self.rt.block_on(self.resp.head())
+        self.rt.block_on(self.async_resp.head())
     }
 
     fn collect_with_head(&mut self) -> DCBResult<(Vec<DCBSequencedEvent>, Option<u64>)> {
