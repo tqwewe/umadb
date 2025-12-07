@@ -58,6 +58,7 @@ umadb [OPTIONS]
 - `--listen` - Server bind address (e.g. `127.0.0.1:50051`)
 - `--tls-cert` - Optional file path to TLS server certificate (also via UMADB_TLS_CERT)
 - `--tls-key` - Optional file path to TLS server private key (also via UMADB_TLS_KEY)
+- `--api-key` - Optional API key for authenticating clients (also via UMADB_API_KEY)
 - `-h, --help` - Print help
 - `-V, --version` - Print version
 

@@ -97,6 +97,19 @@ client = Client(
 )
 ```
 
+### API key
+
+```python
+from umadb import Client
+
+# Connect with API key
+client = Client(
+    url="https://secure-server:50051",
+    ca_path="/path/to/ca.pem",
+    api_key="umadb:example-api-key-4f7c2b1d9e5f4a038c1a72d8b8a0e4f1"
+)
+```
+
 ### Reading with Options
 
 ```python

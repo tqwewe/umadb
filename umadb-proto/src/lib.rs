@@ -104,8 +104,12 @@ impl From<DCBSequencedEvent> for v1::SequencedEvent {
 }
 
 // Helper: map DCBError -> tonic::Status with structured details
-pub fn status_from_dcb_error(e: &DCBError) -> Status {
+pub fn status_from_dcb_error(e: DCBError) -> Status {
     let (code, error_type) = match e {
+        DCBError::AuthenticationError(_) => (
+            Code::Unauthenticated,
+            v1::error_response::ErrorType::Authentication as i32,
+        ),
         DCBError::IntegrityError(_) => (
             Code::FailedPrecondition,
             v1::error_response::ErrorType::Integrity as i32,
@@ -143,6 +147,9 @@ pub fn dcb_error_from_status(status: Status) -> DCBError {
         && let Ok(err) = v1::ErrorResponse::decode(details)
     {
         return match err.error_type {
+            x if x == v1::error_response::ErrorType::Authentication as i32 => {
+                DCBError::AuthenticationError(err.message)
+            }
             x if x == v1::error_response::ErrorType::Integrity as i32 => {
                 DCBError::IntegrityError(err.message)
             }
@@ -160,6 +167,7 @@ pub fn dcb_error_from_status(status: Status) -> DCBError {
     }
     // Fallback: infer from gRPC code
     match status.code() {
+        Code::Unauthenticated => DCBError::AuthenticationError(status.message().to_string()),
         Code::FailedPrecondition => DCBError::IntegrityError(status.message().to_string()),
         Code::DataLoss => DCBError::Corruption(status.message().to_string()),
         Code::InvalidArgument => DCBError::SerializationError(status.message().to_string()),

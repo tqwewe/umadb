@@ -25,6 +25,7 @@ use std::convert::Infallible;
 use std::future::Future;
 use std::task::{Context, Poll};
 use tonic::server::NamedService;
+use umadb_proto::status_from_dcb_error;
 
 // This is just to maintain compatibility for the very early unversioned API (pre-v1).
 #[derive(Clone, Debug)]
@@ -146,7 +147,7 @@ pub async fn start_server<P: AsRef<Path> + Send + 'static>(
     addr: &str,
     shutdown_rx: oneshot::Receiver<()>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    start_server_internal(path, addr, shutdown_rx, None).await
+    start_server_internal(path, addr, shutdown_rx, None, None).await
 }
 
 /// Start server with TLS using PEM-encoded cert and key.
@@ -158,7 +159,7 @@ pub async fn start_server_secure<P: AsRef<Path> + Send + 'static>(
     key_pem: Vec<u8>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let tls = ServerTlsOptions { cert_pem, key_pem };
-    start_server_internal(path, addr, shutdown_rx, Some(tls)).await
+    start_server_internal(path, addr, shutdown_rx, Some(tls), None).await
 }
 
 /// Convenience: load cert and key from filesystem paths
@@ -195,11 +196,70 @@ pub async fn start_server_secure_from_files<
     start_server_secure(path, addr, shutdown_rx, cert_pem, key_pem).await
 }
 
+/// Start server (insecure) requiring an API key for all RPCs.
+pub async fn start_server_with_api_key<P: AsRef<Path> + Send + 'static>(
+    path: P,
+    addr: &str,
+    shutdown_rx: oneshot::Receiver<()>,
+    api_key: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    start_server_internal(path, addr, shutdown_rx, None, Some(api_key)).await
+}
+
+/// Start TLS server requiring an API key for all RPCs.
+pub async fn start_server_secure_with_api_key<P: AsRef<Path> + Send + 'static>(
+    path: P,
+    addr: &str,
+    shutdown_rx: oneshot::Receiver<()>,
+    cert_pem: Vec<u8>,
+    key_pem: Vec<u8>,
+    api_key: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let tls = ServerTlsOptions { cert_pem, key_pem };
+    start_server_internal(path, addr, shutdown_rx, Some(tls), Some(api_key)).await
+}
+
+/// TLS server from files requiring an API key
+pub async fn start_server_secure_from_files_with_api_key<
+    P: AsRef<Path> + Send + 'static,
+    CP: AsRef<Path>,
+    KP: AsRef<Path>,
+>(
+    path: P,
+    addr: &str,
+    shutdown_rx: oneshot::Receiver<()>,
+    cert_path: CP,
+    key_path: KP,
+    api_key: String,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let cert_path_ref = cert_path.as_ref();
+    let cert_pem = fs::read(cert_path_ref).map_err(|e| -> Box<dyn std::error::Error> {
+        format!(
+            "Failed to open TLS certificate file '{}': {}",
+            cert_path_ref.display(),
+            e
+        )
+        .into()
+    })?;
+
+    let key_path_ref = key_path.as_ref();
+    let key_pem = fs::read(key_path_ref).map_err(|e| -> Box<dyn std::error::Error> {
+        format!(
+            "Failed to open TLS key file '{}': {}",
+            key_path_ref.display(),
+            e
+        )
+        .into()
+    })?;
+    start_server_secure_with_api_key(path, addr, shutdown_rx, cert_pem, key_pem, api_key).await
+}
+
 async fn start_server_internal<P: AsRef<Path> + Send + 'static>(
     path: P,
     addr: &str,
     shutdown_rx: oneshot::Receiver<()>,
     tls: Option<ServerTlsOptions>,
+    api_key: Option<String>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let addr = addr.parse()?;
     // ---- Bind incoming manually like tonic ----
@@ -217,7 +277,7 @@ async fn start_server_internal<P: AsRef<Path> + Send + 'static>(
 
     // Create a shutdown broadcast channel for terminating ongoing subscriptions
     let (srv_shutdown_tx, srv_shutdown_rx) = watch::channel(false);
-    let dcb_server = match DCBServer::new(path.as_ref().to_owned(), srv_shutdown_rx) {
+    let dcb_server = match DCBServer::new(path.as_ref().to_owned(), srv_shutdown_rx, api_key.clone()) {
         Ok(server) => server,
         Err(err) => {
             return Err(Box::new(err));
@@ -248,10 +308,13 @@ async fn start_server_internal<P: AsRef<Path> + Send + 'static>(
     let health_reporter_for_shutdown = health_reporter.clone();
 
     // Apply PathRewriterLayer at the server level to intercept all requests before routing
-    let router = build_server_builder_with_options(tls)
+    let mut builder = build_server_builder_with_options(tls)
         .layer(PathRewriterLayer)
-        .add_service(health_service)
-        .add_service(dcb_server.into_service());
+        .add_service(health_service);
+
+    // Add DCB service (auth enforced inside RPC handlers if configured)
+    builder = builder.add_service(dcb_server.into_service());
+    let router = builder;
 
     println!("UmaDB is listening on {addr} ({server_mode_display_str})");
     println!("UmaDB started in {:?}", uptime());
@@ -280,17 +343,20 @@ async fn start_server_internal<P: AsRef<Path> + Send + 'static>(
 pub struct DCBServer {
     pub(crate) request_handler: RequestHandler,
     shutdown_watch_rx: watch::Receiver<bool>,
+    api_key: Option<String>,
 }
 
 impl DCBServer {
     pub fn new<P: AsRef<Path> + Send + 'static>(
         path: P,
         shutdown_rx: watch::Receiver<bool>,
+        api_key: Option<String>,
     ) -> DCBResult<Self> {
         let command_handler = RequestHandler::new(path)?;
         Ok(Self {
             request_handler: command_handler,
             shutdown_watch_rx: shutdown_rx,
+            api_key,
         })
     }
 
@@ -308,6 +374,18 @@ impl umadb_proto::v1::dcb_server::Dcb for DCBServer {
         &self,
         request: Request<umadb_proto::v1::ReadRequest>,
     ) -> Result<Response<Self::ReadStream>, Status> {
+        // Enforce API key if configured
+        if let Some(expected) = &self.api_key {
+            let auth = request.metadata().get("authorization");
+            let expected_val = format!("Bearer {}", expected);
+            let ok = auth
+                .and_then(|m| m.to_str().ok())
+                .map(|s| s == expected_val)
+                .unwrap_or(false);
+            if !ok {
+                return Err(status_from_dcb_error(DCBError::AuthenticationError("missing or invalid API key".to_string())));
+            }
+        }
         let read_request = request.into_inner();
 
         // Convert protobuf query to DCB types
@@ -487,7 +565,7 @@ impl umadb_proto::v1::dcb_server::Dcb for DCBServer {
                         tokio::task::yield_now().await;
                     }
                     Err(e) => {
-                        let _ = tx.send(Err(umadb_proto::status_from_dcb_error(&e))).await;
+                        let _ = tx.send(Err(status_from_dcb_error(e))).await;
                         break;
                     }
                 }
@@ -504,13 +582,25 @@ impl umadb_proto::v1::dcb_server::Dcb for DCBServer {
         &self,
         request: Request<umadb_proto::v1::AppendRequest>,
     ) -> Result<Response<umadb_proto::v1::AppendResponse>, Status> {
+        // Enforce API key if configured
+        if let Some(expected) = &self.api_key {
+            let auth = request.metadata().get("authorization");
+            let expected_val = format!("Bearer {}", expected);
+            let ok = auth
+                .and_then(|m| m.to_str().ok())
+                .map(|s| s == expected_val)
+                .unwrap_or(false);
+            if !ok {
+                return Err(status_from_dcb_error(DCBError::AuthenticationError("missing or invalid API key".to_string())));
+            }
+        }
         let req = request.into_inner();
 
         // Convert protobuf types to API types
         let events: Vec<DCBEvent> = match req.events.into_iter().map(|e| e.try_into()).collect() {
             Ok(events) => events,
             Err(e) => {
-                return Err(umadb_proto::status_from_dcb_error(&e));
+                return Err(status_from_dcb_error(e));
             }
         };
         let condition = req.condition.map(|c| c.into());
@@ -518,21 +608,33 @@ impl umadb_proto::v1::dcb_server::Dcb for DCBServer {
         // Call the event store append method
         match self.request_handler.append(events, condition).await {
             Ok(position) => Ok(Response::new(umadb_proto::v1::AppendResponse { position })),
-            Err(e) => Err(umadb_proto::status_from_dcb_error(&e)),
+            Err(e) => Err(status_from_dcb_error(e)),
         }
     }
 
     async fn head(
         &self,
-        _request: Request<umadb_proto::v1::HeadRequest>,
+        request: Request<umadb_proto::v1::HeadRequest>,
     ) -> Result<Response<umadb_proto::v1::HeadResponse>, Status> {
+        // Enforce API key if configured
+        if let Some(expected) = &self.api_key {
+            let auth = request.metadata().get("authorization");
+            let expected_val = format!("Bearer {}", expected);
+            let ok = auth
+                .and_then(|m| m.to_str().ok())
+                .map(|s| s == expected_val)
+                .unwrap_or(false);
+            if !ok {
+                return Err(status_from_dcb_error(DCBError::AuthenticationError("missing or invalid API key".to_string())));
+            }
+        }
         // Call the event store head method
         match self.request_handler.head().await {
             Ok(position) => {
                 // Return the position as a response
                 Ok(Response::new(umadb_proto::v1::HeadResponse { position }))
             }
-            Err(e) => Err(umadb_proto::status_from_dcb_error(&e)),
+            Err(e) => Err(status_from_dcb_error(e)),
         }
     }
 }
@@ -879,6 +981,7 @@ impl RequestHandler {
 
 fn clone_dcb_error(src: &DCBError) -> DCBError {
     match src {
+        DCBError::AuthenticationError(err) => DCBError::AuthenticationError(err.to_string()),
         DCBError::InitializationError(err) => DCBError::InitializationError(err.to_string()),
         DCBError::Io(err) => DCBError::Io(std::io::Error::other(err.to_string())),
         DCBError::IntegrityError(s) => DCBError::IntegrityError(s.clone()),

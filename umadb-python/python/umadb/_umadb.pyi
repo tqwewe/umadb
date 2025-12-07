@@ -17,7 +17,7 @@ class Client:
     r"""
     Python wrapper for the synchronous UmaDB client
     """
-    def __new__(cls, url: builtins.str, ca_path: typing.Optional[builtins.str] = None, batch_size: typing.Optional[builtins.int] = None) -> Client:
+    def __new__(cls, url: builtins.str, ca_path: typing.Optional[builtins.str] = None, batch_size: typing.Optional[builtins.int] = None, api_key: typing.Optional[builtins.str] = None) -> Client:
         r"""
         Create a new UmaDB client
         
@@ -25,6 +25,8 @@ class Client:
             url: The server URL (e.g., "http://localhost:50051" or "https://server:50051")
             ca_path: Optional path to CA certificate for TLS
             batch_size: Optional batch size for reading events
+            api_key: Optional API key for authenticating clients
+        
         
         Returns:
             A connected UmaDB client

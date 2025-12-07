@@ -7,6 +7,9 @@ use std::path::PathBuf;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
+use tonic::Request;
+use tonic::metadata::MetadataValue;
+use std::str::FromStr;
 
 use tokio::runtime::{Handle, Runtime};
 use umadb_dcb::{
@@ -57,6 +60,7 @@ pub struct UmaDBClient {
     ca_path: Option<String>,
     batch_size: Option<u32>,
     without_sigint_handler: bool,
+    api_key: Option<String>,
 }
 
 impl UmaDBClient {
@@ -66,12 +70,20 @@ impl UmaDBClient {
             ca_path: None,
             batch_size: None,
             without_sigint_handler: false,
+            api_key: None,
         }
     }
 
     pub fn ca_path(self, ca_path: String) -> Self {
         Self {
             ca_path: Some(ca_path),
+            ..self
+        }
+    }
+
+    pub fn api_key(self, api_key: String) -> Self {
+        Self {
+            api_key: Some(api_key),
             ..self
         }
     }
@@ -91,8 +103,7 @@ impl UmaDBClient {
     }
 
     pub fn connect(&self) -> DCBResult<SyncUmaDBClient> {
-        let client =
-            SyncUmaDBClient::connect(self.url.clone(), self.ca_path.clone(), self.batch_size);
+        let client = SyncUmaDBClient::connect(self.url.clone(), self.ca_path.clone(), self.batch_size, self.api_key.clone());
         if !self.without_sigint_handler
             && let Ok(client) = &client
         {
@@ -101,8 +112,7 @@ impl UmaDBClient {
         client
     }
     pub async fn connect_async(&self) -> DCBResult<AsyncUmaDBClient> {
-        let client =
-            AsyncUmaDBClient::connect(self.url.clone(), self.ca_path.clone(), self.batch_size)
+        let client = AsyncUmaDBClient::connect(self.url.clone(), self.ca_path.clone(), self.batch_size, self.api_key.clone())
                 .await;
         if !self.without_sigint_handler
             && let Ok(client) = &client
@@ -125,9 +135,10 @@ impl SyncUmaDBClient {
         url: String,
         ca_path: Option<String>,
         batch_size: Option<u32>,
+        api_key: Option<String>,
     ) -> DCBResult<Self> {
         let (rt, handle) = Self::get_rt_handle();
-        let async_client = handle.block_on(AsyncUmaDBClient::connect(url, ca_path, batch_size))?;
+        let async_client = handle.block_on(AsyncUmaDBClient::connect(url, ca_path, batch_size, api_key))?;
         Ok(Self {
             async_client,
             _runtime: rt, // Keep runtime alive for the client lifetime
@@ -145,6 +156,7 @@ impl SyncUmaDBClient {
             url,
             tls_options,
             batch_size,
+            None,
         ))?;
         Ok(Self {
             async_client,
@@ -277,6 +289,8 @@ impl DCBReadResponseSync for SyncClientReadResponse {
 pub struct AsyncUmaDBClient {
     client: umadb_proto::v1::dcb_client::DcbClient<Channel>,
     batch_size: Option<u32>,
+    tls_enabled: bool,
+    api_key: Option<String>,
 }
 
 impl AsyncUmaDBClient {
@@ -284,6 +298,7 @@ impl AsyncUmaDBClient {
         url: String,
         ca_path: Option<String>,
         batch_size: Option<u32>,
+        api_key: Option<String>,
     ) -> DCBResult<Self> {
         // Try to read the CA certificate.
         let ca_pem = {
@@ -303,24 +318,42 @@ impl AsyncUmaDBClient {
             ca_pem,
         });
 
-        Self::connect_with_tls_options(url, client_tls_options, batch_size).await
+        Self::connect_with_tls_options(url, client_tls_options, batch_size, api_key).await
     }
 
     pub async fn connect_with_tls_options(
         url: String,
         tls_options: Option<ClientTlsOptions>,
         batch_size: Option<u32>,
+        api_key: Option<String>,
     ) -> DCBResult<Self> {
+        let tls_enabled = url.starts_with("https://") || url.starts_with("grpcs://");
         match new_channel(url, tls_options).await {
             Ok(channel) => Ok(Self {
                 client: umadb_proto::v1::dcb_client::DcbClient::new(channel),
                 batch_size,
+                tls_enabled,
+                api_key,
             }),
             Err(err) => Err(DCBError::TransportError(format!(
                 "failed to connect: {:?}",
                 err
             ))),
         }
+    }
+
+    fn add_auth<T>(&self, mut req: Request<T>) -> DCBResult<Request<T>> {
+        if let Some(key) = &self.api_key {
+            if !self.tls_enabled {
+                return Err(DCBError::TransportError(
+                    "API key configured but TLS is not enabled; refusing to send credentials over insecure channel".to_string(),
+                ));
+            }
+            let token = MetadataValue::from_str(&format!("Bearer {}", key))
+                .map_err(|e| DCBError::TransportError(format!("invalid API key: {}", e)))?;
+            req.metadata_mut().insert("authorization", token);
+        }
+        Ok(req)
     }
 
     pub async fn register_cancel_sigint_handler(&self) {
@@ -340,7 +373,7 @@ impl DCBEventStoreAsync for AsyncUmaDBClient {
         subscribe: bool,
     ) -> DCBResult<Box<dyn DCBReadResponseAsync + Send + 'static>> {
         let query_proto = query.map(|q| q.into());
-        let request = umadb_proto::v1::ReadRequest {
+        let req_body = umadb_proto::v1::ReadRequest {
             query: query_proto,
             start,
             backwards: Some(backwards),
@@ -349,8 +382,9 @@ impl DCBEventStoreAsync for AsyncUmaDBClient {
             batch_size: self.batch_size,
         };
         let mut client = self.client.clone();
+        let req = self.add_auth(Request::new(req_body))?;
         let response = client
-            .read(request)
+            .read(req)
             .await
             .map_err(umadb_proto::dcb_error_from_status)?;
         let stream = response.into_inner();
@@ -359,7 +393,8 @@ impl DCBEventStoreAsync for AsyncUmaDBClient {
 
     async fn head(&self) -> DCBResult<Option<u64>> {
         let mut client = self.client.clone();
-        match client.head(umadb_proto::v1::HeadRequest {}).await {
+        let req = self.add_auth(Request::new(umadb_proto::v1::HeadRequest {}))?;
+        match client.head(req).await {
             Ok(response) => Ok(response.into_inner().position),
             Err(status) => Err(umadb_proto::dcb_error_from_status(status)),
         }
@@ -378,12 +413,13 @@ impl DCBEventStoreAsync for AsyncUmaDBClient {
             fail_if_events_match: Some(c.fail_if_events_match.into()),
             after: c.after,
         });
-        let request = umadb_proto::v1::AppendRequest {
+        let body = umadb_proto::v1::AppendRequest {
             events: events_proto,
             condition: condition_proto,
         };
         let mut client = self.client.clone();
-        match client.append(request).await {
+        let req = self.add_auth(Request::new(body))?;
+        match client.append(req).await {
             Ok(response) => Ok(response.into_inner().position),
             Err(status) => Err(umadb_proto::dcb_error_from_status(status)),
         }

@@ -503,12 +503,14 @@ umadb --listen 127.0.0.1:50051 --db-path ./uma.db
 - `--db-path`: Path to the database file or directory
 - `--tls-cert`: TLS server certificate (PEM), optional
 - `--tls-key`: TLS server private key (PEM), optional
+- `--api-key` - API key for authenticating clients, optional
 - `-h, --help`: Show help information
 - `-V, --version`: Show version information
 
 The TLS options can also be provided using environment variables:
 * `UMADB_TLS_CERT` — Path to the server TLS certificate (PEM), equivalent to `--tls-cert`
 * `UMADB_TLS_KEY` — Path to the server TLS private key (PEM), equivalent to `--tls-key`
+* `UMADB_API_KEY` — API key for authenticating clients, equivalent to `--api-key`
 
 ### Self-signed TLS Certificate
 
@@ -838,13 +840,14 @@ Represents an application-level error returned by the service.
 
 ### Error Type — **ErrorType**
 
-| Value | Name            | Description                                          |
-|-------|-----------------|------------------------------------------------------|
-| `0`   | `IO`            | Input/output error (e.g. storage or filesystem).     |
-| `1`   | `SERIALIZATION` | Serialization or deserialization failure.            |
-| `2`   | `INTEGRITY`     | Logical integrity violation (e.g. condition failed). |
-| `3`   | `CORRUPTION`    | Corrupted or invalid data detected.                  |
-| `4`   | `INTERNAL`      | Internal server or database error.                   |
+| Value | Name             | Description                                          |
+|-------|------------------|------------------------------------------------------|
+| `0`   | `IO`             | Input/output error (e.g. storage or filesystem).     |
+| `1`   | `SERIALIZATION`  | Serialization or deserialization failure.            |
+| `2`   | `INTEGRITY`      | Logical integrity violation (e.g. condition failed). |
+| `3`   | `CORRUPTION`     | Corrupted or invalid data detected.                  |
+| `4`   | `INTERNAL`       | Internal server or database error.                   |
+| `5`   | `AUTHENTICATION` | Client-server authentication error.                  |
 
 The "rich status" message can be used to extract structured error details.
 
@@ -987,11 +990,12 @@ The client methods and DCB object types are described below, followed by some ex
 Builds configuration for connecting to an UmaDB server, and constructs synchronous and asynchronous client instances.
 
 
-| Fields       | Type             | Description                                                                                  |
-|--------------|------------------|----------------------------------------------------------------------------------------------|
-| `url`        | `String`         | Database URL                                                                                 |
-| `ca_path`    | `Option<String>` | Path to server certificate (default `None`)                                                  |
-| `batch_size` | `Option<u32>`    | Optional hint for how many events to buffer per batch when reading events (default `None`).  |
+| Fields       | Type             | Description                                                                                 |
+|--------------|------------------|---------------------------------------------------------------------------------------------|
+| `url`        | `String`         | Database URL                                                                                |
+| `ca_path`    | `Option<String>` | Path to server certificate (default `None`)                                                 |
+| `batch_size` | `Option<u32>`    | Optional hint for how many events to buffer per batch when reading events (default `None`). |
+| `api_key`    | `Option<String>` | Optional API key for authenticating clients (default `None`).                               |
 
 
 ### `fn new()`
@@ -1031,6 +1035,18 @@ Arguments:
 This value can modestly affect latency and throughput. If unset, a sensible default value will be used by the
 server. The server will also cap this value at a reasonable level.
 
+### `fn api_key()`
+
+Returns a copy of the `UmaDCBClient` config object with the optional `api_key` field set to a `Some(String)`.
+
+Arguments:
+
+| Parameter | Type     | Description                        |
+|-----------|----------|------------------------------------|
+| `api_key` | `String` | API key for authenticating clients |
+
+This value must match the server configuration. API keys will not be sent over insecure connections.
+
 ### `fn connect()`
 
 Returns an instance of `SyncUmaDbClient`, the synchronous UmaDB client.
@@ -1046,24 +1062,47 @@ Examples:
 use umadb_client::UmaDBClient;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-   // Synchronous client without TLS (insecure connection)
-   let client = UmaDBClient::new("http://localhost:50051".to_string()).connect()?;
+    // Synchronous client without TLS (insecure connection)
+    let client = UmaDBClient::new("http://localhost:50051".to_string())
+        .connect()?;
 
-   // Synchronous client with TLS (secure connection)
-   let client = UmaDBClient::new("https://example.com:50051".to_string()).connect()?;
-  
-   // Synchronous client with TLS (self-signed server certificate)
-   let client = UmaDBClient::new("https://localhost:50051".to_string()).ca_path("server.pem".to_string()).connect()?;
-  
-   // Asynchronous client without TLS (insecure connection)
-   let client = UmaDBClient::new("http://localhost:50051".to_string()).connect_async().await?;
+    // Synchronous client with TLS (secure connection)
+    let client = UmaDBClient::new("https://example.com:50051".to_string())
+        .connect()?;
 
-   // Asynchronous client with TLS (secure connection)
-   let client = UmaDBClient::new("https://example.com:50051".to_string()).connect_async().await?;
+    // Synchronous client with TLS and API key
+    let client = UmaDBClient::new("https://example.com:50051".to_string())
+        .api_key("umadb:example-api-key-4f7c2b1d9e5f4a038c1a72d8b8a0e4f1".to_string())
+        .connect()?;
 
-   // Asynchronous client with TLS (self-signed server certificate)
-   let client = UmaDBClient::new("https://localhost:50051".to_string()).ca_path("server.pem".to_string()).connect_async().await?;
+    // Synchronous client with TLS (self-signed server certificate)
+    let client = UmaDBClient::new("https://localhost:50051".to_string())
+        .ca_path("server.pem".to_string())
+        .connect()?;
 
+    // Asynchronous client without TLS (insecure connection)
+    let client = UmaDBClient::new("http://localhost:50051".to_string())
+        .connect_async()
+        .await?;
+
+    // Asynchronous client with TLS (secure connection)
+    let client = UmaDBClient::new("https://example.com:50051".to_string())
+        .connect_async()
+        .await?;
+
+    // Asynchronous client with TLS and API key
+    let client = UmaDBClient::new("https://example.com:50051".to_string())
+        .api_key("umadb:example-api-key-4f7c2b1d9e5f4a038c1a72d8b8a0e4f1".to_string())
+        .connect_async()
+        .await?;
+
+    // Asynchronous client with TLS (self-signed server certificate)
+    let client = UmaDBClient::new("https://localhost:50051".to_string())
+        .ca_path("server.pem".to_string())
+        .connect_async().await?;
+
+    Ok(())
+}
 ```
 
 ### `struct SyncUmaDCBClient`
@@ -1197,6 +1236,7 @@ Represents all errors that can occur in UmaDB.
 | `PageAlreadyFreed(page_id)`      | Attempted to free a page that was already freed.       |
 | `PageAlreadyDirty(page_id)`      | Attempted to mark a page dirty that was already dirty. |
 | `TransportError(message)`        | Client-server connection failed.                       |
+| `AuthenticationError(message)`   | Client-server authentication failed.                   |
 
 ### `type DCBResult<T>`
 

@@ -68,6 +68,7 @@ message ErrorResponse {
     INTEGRITY = 2;
     CORRUPTION = 3;
     INTERNAL = 4;
+    AUTHENTICATION = 5;
   }
 }
 

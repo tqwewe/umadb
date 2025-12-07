@@ -239,10 +239,10 @@ impl DCBAppendCondition {
 pub struct DCBEvent {
     /// Type of the event
     pub event_type: String,
-    /// Binary data associated with the event
-    pub data: Vec<u8>,
     /// Tags associated with the event
     pub tags: Vec<String>,
+    /// Binary data associated with the event
+    pub data: Vec<u8>,
     /// Unique event ID
     pub uuid: Option<Uuid>,
 }
@@ -296,10 +296,10 @@ impl DCBEvent {
 /// An event with its position in the event sequence
 #[derive(Debug, Clone)]
 pub struct DCBSequencedEvent {
-    /// The event
-    pub event: DCBEvent,
     /// Position of the event in the sequence
     pub position: u64,
+    /// The event
+    pub event: DCBEvent,
 }
 
 // Error types
@@ -340,6 +340,10 @@ pub enum DCBError {
     TransportError(String),
     #[error("Cancelled by user")]
     CancelledByUser(),
+
+    // Authentication error
+    #[error("Authentication error: {0}")]
+    AuthenticationError(String),
 }
 
 pub type DCBResult<T> = Result<T, DCBError>;

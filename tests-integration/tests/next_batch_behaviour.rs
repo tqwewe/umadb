@@ -105,7 +105,7 @@ async fn next_batch_returns_all_then_empty_when_unlimited_and_large_batch_size()
             .data(vec![i])
             .uuid(Uuid::new_v4())
     };
-    let p1 = client.append(vec![mk_event(1)], None).await.unwrap();
+    let _p1 = client.append(vec![mk_event(1)], None).await.unwrap();
     let _p2 = client.append(vec![mk_event(2)], None).await.unwrap();
     let p3 = client.append(vec![mk_event(3)], None).await.unwrap();
 

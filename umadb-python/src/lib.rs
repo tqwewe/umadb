@@ -17,6 +17,7 @@ use pyo3::create_exception;
 create_exception!(umadb, IntegrityError, PyValueError);
 create_exception!(umadb, TransportError, PyRuntimeError);
 create_exception!(umadb, CorruptionError, PyRuntimeError);
+create_exception!(umadb, AuthenticationError, PyRuntimeError);
 
 /// Convert DCBError to Python exception
 fn dcb_error_to_py_err(err: DCBError) -> PyErr {
@@ -25,6 +26,7 @@ fn dcb_error_to_py_err(err: DCBError) -> PyErr {
         DCBError::TransportError(msg) => TransportError::new_err(msg),
         DCBError::Corruption(msg) => CorruptionError::new_err(msg),
         DCBError::CancelledByUser() => PyKeyboardInterrupt::new_err(()),
+        DCBError::AuthenticationError(msg) => AuthenticationError::new_err(msg),
         other => PyException::new_err(format!("{}", other)),
     }
 }
@@ -279,23 +281,23 @@ impl PyUmaDBClient {
     ///     url: The server URL (e.g., "http://localhost:50051" or "https://server:50051")
     ///     ca_path: Optional path to CA certificate for TLS
     ///     batch_size: Optional batch size for reading events
+    ///     api_key: Optional API key for authenticating clients
+    ///
     ///
     /// Returns:
     ///     A connected UmaDB client
     #[new]
-    #[pyo3(signature = (url, ca_path=None, batch_size=None))]
-    fn new(url: String, ca_path: Option<String>, batch_size: Option<u32>) -> PyResult<Self> {
+    #[pyo3(signature = (url, ca_path=None, batch_size=None, api_key=None))]
+    fn new(
+        url: String,
+        ca_path: Option<String>,
+        batch_size: Option<u32>,
+        api_key: Option<String>,
+    ) -> PyResult<Self> {
         let client = UmaDBClient::new(url);
-        let client = if let Some(ca) = ca_path {
-            client.ca_path(ca)
-        } else {
-            client
-        };
-        let client = if let Some(bs) = batch_size {
-            client.batch_size(bs)
-        } else {
-            client
-        };
+        let client = if let Some(ca) = ca_path { client.ca_path(ca) } else { client };
+        let client = if let Some(bs) = batch_size { client.batch_size(bs) } else { client };
+        let client = if let Some(k) = api_key { client.api_key(k) } else { client };
 
         let sync_client = client.connect().map_err(dcb_error_to_py_err)?;
 
@@ -413,5 +415,6 @@ fn _umadb(py: Python<'_>, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add("IntegrityError", py.get_type::<IntegrityError>())?;
     m.add("TransportError", py.get_type::<TransportError>())?;
     m.add("CorruptionError", py.get_type::<CorruptionError>())?;
+    m.add("AuthenticationError", py.get_type::<AuthenticationError>())?;
     Ok(())
 }

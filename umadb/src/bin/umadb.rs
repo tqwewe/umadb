@@ -1,7 +1,7 @@
 use clap::{CommandFactory, FromArgMatches, Parser};
 use tokio::signal;
 use tokio::sync::oneshot;
-use umadb_server::{start_server, start_server_secure_from_files, uptime};
+use umadb_server::{start_server, start_server_secure_from_files, start_server_secure_from_files_with_api_key, start_server_with_api_key, uptime};
 
 #[allow(dead_code)]
 const BANNER_BIG: &str = r#"
@@ -32,6 +32,10 @@ struct Args {
     /// Optional file path to TLS server private key (PEM) - can also be set via UMADB_TLS_KEY environment variable
     #[arg(long = "tls-key", required = false)]
     key: Option<String>,
+
+    /// Optional API key for authenticating clients (also via UMADB_API_KEY)
+    #[arg(long = "api-key", required = false)]
+    api_key: Option<String>,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -62,6 +66,7 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 
     let cert = args.cert.or_else(|| std::env::var("UMADB_TLS_CERT").ok());
     let key = args.key.or_else(|| std::env::var("UMADB_TLS_KEY").ok());
+    let api_key = args.api_key.or_else(|| std::env::var("UMADB_API_KEY").ok());
 
     let (tx, rx) = oneshot::channel::<()>();
     tokio::spawn(async move {
@@ -77,11 +82,17 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
     println!("{}  v{}", banner, env!("CARGO_PKG_VERSION"));
     println!();
 
-    match (cert, key) {
-        (Some(cert), Some(key)) => {
+    match (cert, key, api_key) {
+        (Some(cert), Some(key), Some(api_key)) => {
+            start_server_secure_from_files_with_api_key(args.db_path, &args.listen, rx, cert, key, api_key).await?
+        }
+        (Some(cert), Some(key), None) => {
             start_server_secure_from_files(args.db_path, &args.listen, rx, cert, key).await?
         }
-        (None, None) => start_server(args.db_path, &args.listen, rx).await?,
+        (None, None, Some(api_key)) => {
+            start_server_with_api_key(args.db_path, &args.listen, rx, api_key).await?
+        }
+        (None, None, None) => start_server(args.db_path, &args.listen, rx).await?,
         _ => {
             eprintln!(
                 "Both --tls-cert and --tls-key (or UMADB_TLS_CERT and UMADB_TLS_KEY) must be provided for TLS"
