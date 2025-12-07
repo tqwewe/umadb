@@ -1,9 +1,14 @@
 SHELL := /bin/bash
 
+PYTHONPATH=./tests
+
+UV_VERSION=0.9.16
+UV ?= uv@$(UV_VERSION)
+UVX ?= uvx@$(UV_VERSION)
+
 .PHONY: clean
 .PHONY: build
 .PHONY: build-workspace-exclude-python
-.PHONY: build-umadb-python
 .PHONY: bench-append bench-append-1 bench-append-10 bench-append-100 bench-append-1000 bench-append-all
 .PHONY: bench-append-cond bench-append-cond-1 bench-append-cond-10 bench-append-cond-100 bench-append-cond-all
 .PHONY: bench-append-with-readers
@@ -31,6 +36,15 @@ SHELL := /bin/bash
 .PHONY: test-cross-umadb-aarch64-unknown-linux-gnu
 .PHONY: test-cross-umadb-x86_64-apple-darwin
 .PHONY: test-cross-umadb-aarch64-apple-darwin
+.PHONY: install-uv
+.PHONY: install-python-tools
+.PHONY: install-python-packages
+.PHONY: update-python-packages
+.PHONY: build-umadb-python
+.PHONY: maturin-python-stubs
+.PHONY: maturin-python-develop
+.PHONY: maturin-python-build
+.PHONY: maturin-python-build-release
 
 clean:
 	cargo clean
@@ -42,26 +56,12 @@ build:
 build-workspace-exclude-python:
 	cargo build --workspace --exclude umadb-python
 
-maturin-python-stubs:
-	$(MAKE) maturin-python-develop
-	python3 ./umadb-python/generate_stubs.py
-	mypy --strict ./umadb-python --exclude generate_stubs.py
-
-maturin-python-develop:
-	PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin develop -m umadb-python/Cargo.toml
-
-maturin-python-build:
-	PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 maturin build --release -m umadb-python/Cargo.toml
-
 test:
 	$(MAKE) test-workspace-exclude-python
 	$(MAKE) test-umadb-python
 
 test-workspace-exclude-python:
 	cargo test --workspace --exclude umadb-python
-
-test-umadb-python:
-	echo "No Python tests, yet..."
 
 
 # Default EVENTS_PER_REQUEST to 10 if not provided
@@ -345,3 +345,40 @@ test-cross-umadb-all: test-cross-umadb-x86_64-unknown-linux-musl \
           test-cross-umadb-x86_64-apple-darwin \
           test-cross-umadb-aarch64-apple-darwin
 	@echo "✅ All binaries tested!"
+
+install-uv:
+	@pipx install --suffix="@$(UV_VERSION)" "uv==$(UV_VERSION)"
+	$(UV) --version
+
+install-python-tools:
+	$(UV) sync
+
+build-umadb-python: maturin-python-stubs maturin-python-build
+
+maturin-python-stubs:
+	$(MAKE) maturin-python-develop
+	$(UV) run python ./umadb-python/generate_stubs.py
+	$(UV) run mypy --strict ./umadb-python --exclude generate_stubs.py
+
+maturin-python-develop:
+	PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 $(UV) run maturin develop --uv -m umadb-python/Cargo.toml
+
+maturin-python-build:
+	PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 $(UV) run maturin build -m umadb-python/Cargo.toml
+
+maturin-python-build-release:
+	PYO3_USE_ABI3_FORWARD_COMPATIBILITY=1 $(UV) run maturin build --release -m umadb-python/Cargo.toml
+
+test-umadb-python:
+	{ \
+	  cargo build --bin umadb; \
+	  cargo run --bin umadb -- --db-path=./uma-tmp.db & \
+	  my_process_id=$$!; \
+	  echo "PID: $$my_process_id"; \
+	  sleep 1; \
+	  $(UV) run python ./umadb-python/examples/basic_usage.py; \
+	  echo "PID: $$my_process_id"; \
+	  kill -SIGINT $$my_process_id; \
+	  sleep 1; \
+	  rm ./uma-tmp.db;\
+	}

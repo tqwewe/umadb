@@ -1,0 +1,10 @@
+[project]
+name = "umadb-python"
+version = "0.1.0"
+description = "Build and test environment for the umadb-python package"
+requires-python = ">=3.10"
+dependencies = [
+    "maturin",
+    "mypy",
+    "uv",
+]
