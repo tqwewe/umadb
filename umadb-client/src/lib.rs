@@ -13,7 +13,6 @@ use umadb_dcb::{
     DCBAppendCondition, DCBError, DCBEvent, DCBEventStoreAsync, DCBEventStoreSync, DCBQuery,
     DCBReadResponseAsync, DCBReadResponseSync, DCBResult, DCBSequencedEvent,
 };
-use umadb_proto;
 
 use std::sync::{Once, OnceLock};
 use tokio::sync::watch;

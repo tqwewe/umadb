@@ -20,16 +20,13 @@ use tokio::runtime::Runtime;
 use tonic::codegen::{http};
 use tonic::transport::server::TcpIncoming;
 use umadb_core::common::Position;
-use umadb_proto;
-
 
 use std::convert::Infallible;
 use std::future::Future;
 use std::task::{Context, Poll};
 use tonic::server::NamedService;
-use tower;
 
-// This is just for the very early unversioned API (pre-v1).
+// This is just to maintain compatibility for the very early unversioned API (pre-v1).
 #[derive(Clone, Debug)]
 pub struct PathRewriterService<S> {
     inner: S,
@@ -80,7 +77,7 @@ where
         }
 
         let fut = self.inner.call(req);
-        Box::pin(async move { fut.await })
+        Box::pin(fut)
     }
 }
 
