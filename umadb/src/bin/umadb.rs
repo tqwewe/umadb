@@ -17,23 +17,23 @@ const BANNER: &str = BANNER_BIG;
 #[derive(Parser, Debug)]
 #[command(version)]
 struct Args {
-    /// Listen address, e.g. 127.0.0.1:50051
+    /// Address to bind to
     #[arg(long = "listen", default_value = "127.0.0.1:50051")]
     listen: String,
 
-    /// Path to database file or folder
-    #[arg(long = "db-path", default_value = "./")]
+    /// Path to database file or directory
+    #[arg(long = "db-path", default_value = "./uma.db")]
     db_path: String,
 
-    /// Optional file path to TLS server certificate (PEM) - can also be set via UMADB_TLS_CERT environment variable
+    /// Path to server TLS certificate (PEM), optional
     #[arg(long = "tls-cert", required = false)]
     cert: Option<String>,
 
-    /// Optional file path to TLS server private key (PEM) - can also be set via UMADB_TLS_KEY environment variable
+    /// Path to server TLS private key (PEM), optional
     #[arg(long = "tls-key", required = false)]
     key: Option<String>,
 
-    /// Optional API key for authenticating clients (also via UMADB_API_KEY)
+    /// API key for authenticating clients, optional
     #[arg(long = "api-key", required = false)]
     api_key: Option<String>,
 }
