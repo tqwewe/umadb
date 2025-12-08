@@ -129,7 +129,7 @@ events = client.read(subscribe=True)
 ### Client
 
 ```python
-Client(url: str, ca_path: str | None = None, batch_size: int | None = None)
+Client(url: str, ca_path: str | None = None, batch_size: int | None = None, api_key: str | None = None)
 ```
 
 Creates a new UmaDB client connection.
