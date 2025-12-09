@@ -22,6 +22,7 @@ pub struct Pager {
     mmap_pages_per_map: usize,
     // Cache of memory maps, keyed by map identifier (floor(page_id / mmap_pages_per_map)).
     mmaps: RwLock<HashMap<u64, Arc<Mmap>>>,
+    no_fsync: bool,
 }
 
 // Implementation for Pager
@@ -99,6 +100,7 @@ impl Pager {
             is_file_new,
             mmap_pages_per_map,
             mmaps: RwLock::new(HashMap::new()),
+            no_fsync: std::env::var("UMADB_NO_FSYNC").ok().is_some(),
         })
     }
 
@@ -378,6 +380,10 @@ impl Pager {
     }
 
     pub fn fsync(&self) -> io::Result<()> {
+        if self.no_fsync {
+            return Ok(())
+        }
+
         #[cfg(target_os = "macos")]
         unsafe {
             let result = libc::fsync(self.writer_raw_fd);
