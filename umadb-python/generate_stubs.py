@@ -28,6 +28,10 @@ class TransportError(RuntimeError):
 class CorruptionError(RuntimeError):
     \"\"\"Raised when on-disk data corruption is detected.\"\"\"
     ...
+
+class AuthenticationError(RuntimeError):
+    \"\"\"Raised when on-disk data corruption is detected.\"\"\"
+    ...
 """
     with open(STUB_PATH, "a", encoding="utf8") as f:
         f.write("\n")
