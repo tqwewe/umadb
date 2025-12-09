@@ -4,9 +4,9 @@ use std::time::Duration;
 use tempfile::tempdir;
 use tokio::time::sleep;
 
+use tonic_health::pb::HealthCheckRequest;
 use tonic_health::pb::health_check_response::ServingStatus as PbServingStatus;
 use tonic_health::pb::health_client::HealthClient;
-use tonic_health::pb::HealthCheckRequest;
 
 use umadb_client::UmaDBClient;
 use umadb_dcb::{DCBEvent, DCBEventStoreAsync};
@@ -85,7 +85,9 @@ async fn next_batch_returns_all_then_empty_when_unlimited_and_large_batch_size()
     let server_task = tokio::spawn({
         let db_clone = db_path.clone();
         let addr_clone = addr.clone();
-        async move { let _ = start_server(db_clone, &addr_clone, shutdown_rx).await; }
+        async move {
+            let _ = start_server(db_clone, &addr_clone, shutdown_rx).await;
+        }
     });
 
     wait_for_health(&url).await;
@@ -121,7 +123,10 @@ async fn next_batch_returns_all_then_empty_when_unlimited_and_large_batch_size()
 
     // Second next_batch should be empty
     let b2 = resp.next_batch().await.unwrap();
-    assert!(b2.is_empty(), "second batch should be empty once stream is drained");
+    assert!(
+        b2.is_empty(),
+        "second batch should be empty once stream is drained"
+    );
 
     // Head should equal last position
     let head = resp.head().await.unwrap();

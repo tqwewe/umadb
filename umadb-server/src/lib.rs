@@ -17,7 +17,7 @@ use umadb_core::mvcc::Mvcc;
 use umadb_dcb::{DCBAppendCondition, DCBError, DCBEvent, DCBQuery, DCBResult, DCBSequencedEvent};
 
 use tokio::runtime::Runtime;
-use tonic::codegen::{http};
+use tonic::codegen::http;
 use tonic::transport::server::TcpIncoming;
 use umadb_core::common::Position;
 
@@ -35,12 +35,19 @@ pub struct PathRewriterService<S> {
 
 impl<S> tower::Service<http::Request<tonic::body::Body>> for PathRewriterService<S>
 where
-    S: tower::Service<http::Request<tonic::body::Body>, Response = http::Response<tonic::body::Body>, Error = Infallible> + Clone + Send + 'static,
+    S: tower::Service<
+            http::Request<tonic::body::Body>,
+            Response = http::Response<tonic::body::Body>,
+            Error = Infallible,
+        > + Clone
+        + Send
+        + 'static,
     S::Future: Send + 'static,
 {
     type Response = S::Response;
     type Error = S::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
+    type Future =
+        Pin<Box<dyn Future<Output = Result<Self::Response, Self::Error>> + Send + 'static>>;
 
     fn poll_ready(&mut self, cx: &mut Context<'_>) -> Poll<Result<(), Self::Error>> {
         self.inner.poll_ready(cx)
@@ -92,7 +99,13 @@ pub struct PathRewriterLayer;
 
 impl<S> tower::Layer<S> for PathRewriterLayer
 where
-    S: tower::Service<http::Request<tonic::body::Body>, Response = http::Response<tonic::body::Body>, Error = Infallible> + Clone + Send + 'static,
+    S: tower::Service<
+            http::Request<tonic::body::Body>,
+            Response = http::Response<tonic::body::Body>,
+            Error = Infallible,
+        > + Clone
+        + Send
+        + 'static,
     S::Future: Send + 'static,
 {
     type Service = PathRewriterService<S>;
@@ -101,8 +114,6 @@ where
         PathRewriterService { inner }
     }
 }
-
-
 
 static START_TIME: LazyLock<Instant> = LazyLock::new(Instant::now);
 
@@ -277,12 +288,13 @@ async fn start_server_internal<P: AsRef<Path> + Send + 'static>(
 
     // Create a shutdown broadcast channel for terminating ongoing subscriptions
     let (srv_shutdown_tx, srv_shutdown_rx) = watch::channel(false);
-    let dcb_server = match DCBServer::new(path.as_ref().to_owned(), srv_shutdown_rx, api_key.clone()) {
-        Ok(server) => server,
-        Err(err) => {
-            return Err(Box::new(err));
-        }
-    };
+    let dcb_server =
+        match DCBServer::new(path.as_ref().to_owned(), srv_shutdown_rx, api_key.clone()) {
+            Ok(server) => server,
+            Err(err) => {
+                return Err(Box::new(err));
+            }
+        };
 
     println!(
         "UmaDB has {:?} events",
@@ -299,7 +311,6 @@ async fn start_server_internal<P: AsRef<Path> + Send + 'static>(
     } else {
         "without API key"
     };
-
 
     // gRPC Health service setup
     use tonic_health::ServingStatus; // server API expects this enum
@@ -389,7 +400,9 @@ impl umadb_proto::v1::dcb_server::Dcb for DCBServer {
                 .map(|s| s == expected_val)
                 .unwrap_or(false);
             if !ok {
-                return Err(status_from_dcb_error(DCBError::AuthenticationError("missing or invalid API key".to_string())));
+                return Err(status_from_dcb_error(DCBError::AuthenticationError(
+                    "missing or invalid API key".to_string(),
+                )));
             }
         }
         let read_request = request.into_inner();
@@ -597,7 +610,9 @@ impl umadb_proto::v1::dcb_server::Dcb for DCBServer {
                 .map(|s| s == expected_val)
                 .unwrap_or(false);
             if !ok {
-                return Err(status_from_dcb_error(DCBError::AuthenticationError("missing or invalid API key".to_string())));
+                return Err(status_from_dcb_error(DCBError::AuthenticationError(
+                    "missing or invalid API key".to_string(),
+                )));
             }
         }
         let req = request.into_inner();
@@ -631,7 +646,9 @@ impl umadb_proto::v1::dcb_server::Dcb for DCBServer {
                 .map(|s| s == expected_val)
                 .unwrap_or(false);
             if !ok {
-                return Err(status_from_dcb_error(DCBError::AuthenticationError("missing or invalid API key".to_string())));
+                return Err(status_from_dcb_error(DCBError::AuthenticationError(
+                    "missing or invalid API key".to_string(),
+                )));
             }
         }
         // Call the event store head method

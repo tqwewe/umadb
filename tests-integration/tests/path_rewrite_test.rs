@@ -1,11 +1,11 @@
+use prost::Message;
 use std::net::TcpListener;
 use tempfile::tempdir;
 use tokio::runtime::Builder as RtBuilder;
-use umadb_server::start_server;
-use umadb_proto::v1::HeadRequest;
-use prost::Message;
 use umadb_client::UmaDBClient;
 use umadb_dcb::DCBEvent;
+use umadb_proto::v1::HeadRequest;
+use umadb_server::start_server;
 
 /// Test that the path rewriting from "/umadb.UmaDBService/" to "/umadb.v1.DCB/" is working
 ///
@@ -92,11 +92,16 @@ fn test_path_rewrite_umadbservice_to_dcb() {
             uuid: None,
         },
     ];
-    let append_position = client.append(events, None).expect("Failed to append events");
-    
+    let append_position = client
+        .append(events, None)
+        .expect("Failed to append events");
+
     // Get the head position using the normal client
-    let client_head_position = client.head().expect("Failed to get head").expect("Head should not be None");
-    
+    let client_head_position = client
+        .head()
+        .expect("Failed to get head")
+        .expect("Head should not be None");
+
     // Verify append returned the correct position (should be 3 after appending 3 events)
     assert_eq!(append_position, 3, "Append should return position 3");
     assert_eq!(client_head_position, 3, "Head should be at position 3");
@@ -104,14 +109,14 @@ fn test_path_rewrite_umadbservice_to_dcb() {
     // Test with the OLD path format "/umadb.UmaDBService/Head" using raw HTTP/2 request
     // This will verify path rewriting works and returns the same head position
     let old_path_head_position = rt.block_on(async {
-        use hyper::body::Bytes;
-        use hyper_util::rt::{TokioIo, TokioExecutor};
-        use tokio::net::TcpStream;
         use http_body_util::Full;
-        
+        use hyper::body::Bytes;
+        use hyper_util::rt::{TokioExecutor, TokioIo};
+        use tokio::net::TcpStream;
+
         // Parse the address
         let addr_parsed = addr_with_scheme.strip_prefix("http://").unwrap();
-        
+
         // Wait for server to be ready by retrying connection
         let stream = {
             let mut attempts = 0;
@@ -121,18 +126,21 @@ fn test_path_rewrite_umadbservice_to_dcb() {
                     Err(e) => {
                         attempts += 1;
                         if attempts >= 50 {
-                            panic!("Failed to connect to server after {} attempts: {:?}", attempts, e);
+                            panic!(
+                                "Failed to connect to server after {} attempts: {:?}",
+                                attempts, e
+                            );
                         }
                         tokio::time::sleep(tokio::time::Duration::from_millis(50)).await;
                     }
                 }
             }
         };
-        
+
         // Give the server a moment to finish initialization after port binding
         // The server binds the port early but may not be ready to serve requests immediately
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-        
+
         let io = TokioIo::new(stream);
 
         // Create an HTTP/2 connection with TokioExecutor
@@ -150,7 +158,9 @@ fn test_path_rewrite_umadbservice_to_dcb() {
         // Encode the HeadRequest protobuf message
         let head_request = HeadRequest {};
         let mut proto_buf = Vec::new();
-        head_request.encode(&mut proto_buf).expect("Failed to encode HeadRequest");
+        head_request
+            .encode(&mut proto_buf)
+            .expect("Failed to encode HeadRequest");
 
         // Add gRPC framing: 5-byte prefix (1 byte compression flag + 4 bytes message length)
         let mut grpc_body = Vec::new();
@@ -161,7 +171,7 @@ fn test_path_rewrite_umadbservice_to_dcb() {
         // Build the HTTP/2 request with the OLD path "/umadb.UmaDBService/Head"
         let req = hyper::Request::builder()
             .method("POST")
-            .uri("/umadb.UmaDBService/Head")  // OLD PATH - should be rewritten by server
+            .uri("/umadb.UmaDBService/Head") // OLD PATH - should be rewritten by server
             .header("content-type", "application/grpc")
             .header("te", "trailers")
             .body(Full::new(Bytes::from(grpc_body)))
@@ -174,12 +184,12 @@ fn test_path_rewrite_umadbservice_to_dcb() {
         match response {
             Ok(mut resp) => {
                 use http_body_util::BodyExt;
-                
+
                 let status = resp.status();
                 if !status.is_success() {
                     return None;
                 }
-                
+
                 // Collect the response body by reading frames
                 let mut body_bytes = Vec::new();
                 while let Some(frame_result) = resp.frame().await {
@@ -195,28 +205,28 @@ fn test_path_rewrite_umadbservice_to_dcb() {
                         }
                     }
                 }
-                
+
                 // gRPC response has 5-byte framing: 1 byte compression flag + 4 bytes message length
                 if body_bytes.len() < 5 {
                     eprintln!("Response body too short for gRPC frame");
                     return None;
                 }
-                
+
                 let message_length = u32::from_be_bytes([
                     body_bytes[1],
                     body_bytes[2],
                     body_bytes[3],
                     body_bytes[4],
                 ]) as usize;
-                
+
                 if body_bytes.len() < 5 + message_length {
                     eprintln!("Response body too short for declared message length");
                     return None;
                 }
-                
+
                 // Extract and decode the protobuf message
                 let proto_bytes = &body_bytes[5..5 + message_length];
-                
+
                 use umadb_proto::v1::HeadResponse;
                 match HeadResponse::decode(proto_bytes) {
                     Ok(head_response) => {
@@ -237,7 +247,10 @@ fn test_path_rewrite_umadbservice_to_dcb() {
     });
 
     // Verify the position returned via old path matches the client's head position
-    println!("Got {:?} as head position from old path", old_path_head_position);
+    println!(
+        "Got {:?} as head position from old path",
+        old_path_head_position
+    );
     assert_eq!(
         old_path_head_position,
         Some(client_head_position),

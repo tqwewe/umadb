@@ -5,11 +5,11 @@ use std::collections::VecDeque;
 use std::fs;
 use std::path::PathBuf;
 use std::pin::Pin;
+use std::str::FromStr;
 use std::task::{Context, Poll};
-use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 use tonic::Request;
 use tonic::metadata::MetadataValue;
-use std::str::FromStr;
+use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 
 use tokio::runtime::{Handle, Runtime};
 use umadb_dcb::{
@@ -103,7 +103,12 @@ impl UmaDBClient {
     }
 
     pub fn connect(&self) -> DCBResult<SyncUmaDBClient> {
-        let client = SyncUmaDBClient::connect(self.url.clone(), self.ca_path.clone(), self.batch_size, self.api_key.clone());
+        let client = SyncUmaDBClient::connect(
+            self.url.clone(),
+            self.ca_path.clone(),
+            self.batch_size,
+            self.api_key.clone(),
+        );
         if !self.without_sigint_handler
             && let Ok(client) = &client
         {
@@ -112,8 +117,13 @@ impl UmaDBClient {
         client
     }
     pub async fn connect_async(&self) -> DCBResult<AsyncUmaDBClient> {
-        let client = AsyncUmaDBClient::connect(self.url.clone(), self.ca_path.clone(), self.batch_size, self.api_key.clone())
-                .await;
+        let client = AsyncUmaDBClient::connect(
+            self.url.clone(),
+            self.ca_path.clone(),
+            self.batch_size,
+            self.api_key.clone(),
+        )
+        .await;
         if !self.without_sigint_handler
             && let Ok(client) = &client
         {
@@ -138,7 +148,8 @@ impl SyncUmaDBClient {
         api_key: Option<String>,
     ) -> DCBResult<Self> {
         let (rt, handle) = Self::get_rt_handle();
-        let async_client = handle.block_on(AsyncUmaDBClient::connect(url, ca_path, batch_size, api_key))?;
+        let async_client =
+            handle.block_on(AsyncUmaDBClient::connect(url, ca_path, batch_size, api_key))?;
         Ok(Self {
             async_client,
             _runtime: rt, // Keep runtime alive for the client lifetime

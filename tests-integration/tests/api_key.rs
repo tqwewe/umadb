@@ -61,8 +61,13 @@ async fn api_key_success_over_tls() {
         let mut last_err = None;
         let mut client: Option<AsyncUmaDBClient> = None;
         for _ in 0..40 {
-            match AsyncUmaDBClient::connect_with_tls_options(url.clone(), Some(tls.clone()), None, Some(api_key.clone()))
-                .await
+            match AsyncUmaDBClient::connect_with_tls_options(
+                url.clone(),
+                Some(tls.clone()),
+                None,
+                Some(api_key.clone()),
+            )
+            .await
             {
                 Ok(c) => {
                     client = Some(c);
@@ -133,8 +138,13 @@ async fn api_key_wrong_fails_over_tls() {
         let mut last_err = None;
         let mut client: Option<AsyncUmaDBClient> = None;
         for _ in 0..40 {
-            match AsyncUmaDBClient::connect_with_tls_options(url.clone(), Some(tls.clone()), None, Some("wrong".to_string()))
-                .await
+            match AsyncUmaDBClient::connect_with_tls_options(
+                url.clone(),
+                Some(tls.clone()),
+                None,
+                Some("wrong".to_string()),
+            )
+            .await
             {
                 Ok(c) => {
                     client = Some(c);
@@ -167,7 +177,11 @@ async fn api_key_rejected_over_insecure_http() {
     let client = builder.connect_async().await;
     // connect may succeed because channel creation may not connect immediately; perform a call
     if let Ok(c) = client {
-        let err = c.head().await.err().expect("head must fail due to insecure");
+        let err = c
+            .head()
+            .await
+            .err()
+            .expect("head must fail due to insecure");
         match err {
             DCBError::TransportError(msg) => assert!(msg.contains("TLS")),
             other => panic!("unexpected error type: {:?}", other),

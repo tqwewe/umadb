@@ -1,7 +1,10 @@
 use clap::{CommandFactory, FromArgMatches, Parser};
 use tokio::signal;
 use tokio::sync::oneshot;
-use umadb_server::{start_server, start_server_secure_from_files, start_server_secure_from_files_with_api_key, start_server_with_api_key, uptime};
+use umadb_server::{
+    start_server, start_server_secure_from_files, start_server_secure_from_files_with_api_key,
+    start_server_with_api_key, uptime,
+};
 
 #[allow(dead_code)]
 const BANNER_BIG: &str = r#"
@@ -84,7 +87,15 @@ async fn async_main() -> Result<(), Box<dyn std::error::Error>> {
 
     match (cert, key, api_key) {
         (Some(cert), Some(key), Some(api_key)) => {
-            start_server_secure_from_files_with_api_key(args.db_path, &args.listen, rx, cert, key, api_key).await?
+            start_server_secure_from_files_with_api_key(
+                args.db_path,
+                &args.listen,
+                rx,
+                cert,
+                key,
+                api_key,
+            )
+            .await?
         }
         (Some(cert), Some(key), None) => {
             start_server_secure_from_files(args.db_path, &args.listen, rx, cert, key).await?

@@ -381,7 +381,7 @@ impl Pager {
 
     pub fn fsync(&self) -> io::Result<()> {
         if self.no_fsync {
-            return Ok(())
+            return Ok(());
         }
 
         #[cfg(target_os = "macos")]

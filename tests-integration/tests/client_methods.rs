@@ -5,9 +5,9 @@ use tempfile::tempdir;
 use tokio::runtime::Builder as RtBuilder;
 use tokio::time::sleep;
 
+use tonic_health::pb::HealthCheckRequest;
 use tonic_health::pb::health_check_response::ServingStatus as PbServingStatus;
 use tonic_health::pb::health_client::HealthClient;
-use tonic_health::pb::HealthCheckRequest;
 
 use umadb_client::UmaDBClient;
 use umadb_dcb::{
@@ -89,7 +89,9 @@ fn client_sync_covers_all_methods() {
     // Start server in background
     let db_clone = db_path.clone();
     let addr_clone = addr.clone();
-    rt.spawn(async move { let _ = start_server(db_clone, &addr_clone, shutdown_rx).await; });
+    rt.spawn(async move {
+        let _ = start_server(db_clone, &addr_clone, shutdown_rx).await;
+    });
 
     // Wait until health is serving on same port
     rt.block_on(wait_for_health(&url));
@@ -190,7 +192,9 @@ async fn client_async_covers_all_methods() {
     // Start server task
     let db_clone = db_path.clone();
     let addr_clone = addr.clone();
-    let server_task = tokio::spawn(async move { let _ = start_server(db_clone, &addr_clone, shutdown_rx).await; });
+    let server_task = tokio::spawn(async move {
+        let _ = start_server(db_clone, &addr_clone, shutdown_rx).await;
+    });
 
     // Wait for health
     wait_for_health(&url).await;

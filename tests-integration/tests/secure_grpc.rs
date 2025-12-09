@@ -63,8 +63,13 @@ async fn secure_grpc_end_to_end_append_and_read() {
         let mut client: Option<AsyncUmaDBClient> = None;
         for _ in 0..40 {
             // up to ~2s
-            match AsyncUmaDBClient::connect_with_tls_options(url.clone(), Some(tls.clone()), None, None)
-                .await
+            match AsyncUmaDBClient::connect_with_tls_options(
+                url.clone(),
+                Some(tls.clone()),
+                None,
+                None,
+            )
+            .await
             {
                 Ok(c) => {
                     client = Some(c);
