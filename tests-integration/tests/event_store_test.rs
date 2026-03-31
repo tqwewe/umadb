@@ -4,7 +4,7 @@ use tokio::runtime::Builder as RtBuilder;
 use umadb_client::UmaDBClient;
 use umadb_core::db::UmaDB;
 use umadb_dcb::{
-    DcbAppendCondition, DdbError, DcbEvent, DcbEventStoreSync, DcbQuery, DcbQueryItem,
+    DcbAppendCondition, DcbError, DcbEvent, DcbEventStoreSync, DcbQuery, DcbQueryItem,
 };
 use umadb_server::start_server;
 use uuid::Uuid;
@@ -683,7 +683,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
     // Fail because condition matches all.
     let new = vec![event4.clone()];
     let result = event_store.append(new.clone(), Some(DcbAppendCondition::default()), None);
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches all after 1.
     let result = event_store.append(
@@ -694,7 +694,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches type1.
     let result = event_store.append(
@@ -705,7 +705,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches type2 after 1.
     let result = event_store.append(
@@ -716,7 +716,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches tagX.
     let result = event_store.append(
@@ -727,7 +727,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches tagA after 1.
     let result = event_store.append(
@@ -738,7 +738,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches type1 and tagX.
     let result = event_store.append(
@@ -749,7 +749,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches type2 and tagA after 1.
     let result = event_store.append(
@@ -760,7 +760,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches tagA and tagB.
     let result = event_store.append(
@@ -771,7 +771,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches tagB or tagC.
     let result = event_store.append(
@@ -782,7 +782,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches tagX or tagY.
     let result = event_store.append(
@@ -793,7 +793,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Fail because condition matches with type2 and tagB, or with type3 and tagC.
     let result = event_store.append(
@@ -804,7 +804,7 @@ pub fn dcb_event_store_test<T: DcbEventStoreSync>(event_store: &T) {
         }),
         None,
     );
-    assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+    assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
     // Can append after 3.
     let position = event_store.append(new.clone(), None, None).unwrap();

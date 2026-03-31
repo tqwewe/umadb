@@ -1,6 +1,6 @@
 use crate::common::{PageID, Tsn};
 use byteorder::{ByteOrder, LittleEndian};
-use umadb_dcb::{DdbError, DcbResult};
+use umadb_dcb::{DcbError, DcbResult};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct FreeListLeafNode {
@@ -74,7 +74,7 @@ impl FreeListLeafNode {
     pub fn from_slice(slice: &[u8]) -> DcbResult<Self> {
         // Check if the slice has at least 2 bytes for keys_len
         if slice.len() < 2 {
-            return Err(DdbError::DeserializationError(format!(
+            return Err(DcbError::DeserializationError(format!(
                 "Expected at least 2 bytes, got {}",
                 slice.len()
             )));
@@ -86,7 +86,7 @@ impl FreeListLeafNode {
         // Calculate the minimum expected size for the keys
         let min_expected_size = 2 + (keys_len * 8);
         if slice.len() < min_expected_size {
-            return Err(DdbError::DeserializationError(format!(
+            return Err(DcbError::DeserializationError(format!(
                 "Expected at least {} bytes for keys, got {}",
                 min_expected_size,
                 slice.len()
@@ -107,7 +107,7 @@ impl FreeListLeafNode {
 
         for _ in 0..keys_len {
             if offset + 2 > slice.len() {
-                return Err(DdbError::DeserializationError(
+                return Err(DcbError::DeserializationError(
                     "Unexpected end of data while reading page_ids length".to_string(),
                 ));
             }
@@ -117,7 +117,7 @@ impl FreeListLeafNode {
             offset += 2;
 
             if offset + (page_ids_len * 8) > slice.len() {
-                return Err(DdbError::DeserializationError(
+                return Err(DcbError::DeserializationError(
                     "Unexpected end of data while reading page_ids".to_string(),
                 ));
             }
@@ -132,7 +132,7 @@ impl FreeListLeafNode {
             offset += page_ids_len * 8;
 
             if offset + 8 > slice.len() {
-                return Err(DdbError::DeserializationError(
+                return Err(DcbError::DeserializationError(
                     "Unexpected end of data while reading root_id".to_string(),
                 ));
             }
@@ -242,7 +242,7 @@ impl FreeListInternalNode {
     pub fn from_slice(slice: &[u8]) -> DcbResult<Self> {
         // Check if the slice has at least 2 bytes for keys_len
         if slice.len() < 2 {
-            return Err(DdbError::DeserializationError(format!(
+            return Err(DcbError::DeserializationError(format!(
                 "Expected at least 2 bytes, got {}",
                 slice.len()
             )));
@@ -254,7 +254,7 @@ impl FreeListInternalNode {
         // Calculate the minimum expected size for the keys
         let min_expected_size = 2 + (keys_len * 8);
         if slice.len() < min_expected_size {
-            return Err(DdbError::DeserializationError(format!(
+            return Err(DcbError::DeserializationError(format!(
                 "Expected at least {} bytes for keys, got {}",
                 min_expected_size,
                 slice.len()
@@ -272,7 +272,7 @@ impl FreeListInternalNode {
         // Extract the length of child_ids (2 bytes)
         let offset = 2 + (keys_len * 8);
         if offset + 2 > slice.len() {
-            return Err(DdbError::DeserializationError(
+            return Err(DcbError::DeserializationError(
                 "Unexpected end of data while reading child_ids length".to_string(),
             ));
         }
@@ -282,7 +282,7 @@ impl FreeListInternalNode {
         // Calculate the minimum expected size for the child_ids
         let min_expected_size = offset + 2 + (child_ids_len * 8);
         if slice.len() < min_expected_size {
-            return Err(DdbError::DeserializationError(format!(
+            return Err(DcbError::DeserializationError(format!(
                 "Expected at least {} bytes for child_ids, got {}",
                 min_expected_size,
                 slice.len()
@@ -306,7 +306,7 @@ impl FreeListInternalNode {
         if self.child_ids[last_idx] == old_id {
             self.child_ids[last_idx] = new_id;
         } else {
-            return Err(DdbError::DatabaseCorrupted("Child ID mismatch".to_string()));
+            return Err(DcbError::DatabaseCorrupted("Child ID mismatch".to_string()));
         }
         Ok(())
     }
@@ -356,7 +356,7 @@ impl FreeListTsnLeafNode {
 
     pub fn from_slice(slice: &[u8]) -> DcbResult<Self> {
         if slice.len() < 2 {
-            return Err(DdbError::DeserializationError(format!(
+            return Err(DcbError::DeserializationError(format!(
                 "Expected at least 2 bytes, got {}",
                 slice.len()
             )));
@@ -364,7 +364,7 @@ impl FreeListTsnLeafNode {
         let plen = LittleEndian::read_u16(&slice[0..2]) as usize;
         let need = 2 + plen * 8;
         if slice.len() < need {
-            return Err(DdbError::DeserializationError(format!(
+            return Err(DcbError::DeserializationError(format!(
                 "Expected at least {} bytes, got {}",
                 need,
                 slice.len()
@@ -420,13 +420,13 @@ impl FreeListTsnInternalNode {
 
     pub fn from_slice(slice: &[u8]) -> DcbResult<Self> {
         if slice.len() < 2 {
-            return Err(DdbError::DeserializationError(
+            return Err(DcbError::DeserializationError(
                 "Expected at least 2 bytes".to_string(),
             ));
         }
         let klen = LittleEndian::read_u16(&slice[0..2]) as usize;
         if slice.len() < 2 + klen * 8 + 2 {
-            return Err(DdbError::DeserializationError("Data too short".to_string()));
+            return Err(DcbError::DeserializationError("Data too short".to_string()));
         }
         let mut keys = Vec::with_capacity(klen);
         let mut offset = 2;
@@ -438,7 +438,7 @@ impl FreeListTsnInternalNode {
         let clen = LittleEndian::read_u16(&slice[offset..offset + 2]) as usize;
         offset += 2;
         if slice.len() < offset + clen * 8 {
-            return Err(DdbError::DeserializationError("Data too short".to_string()));
+            return Err(DcbError::DeserializationError("Data too short".to_string()));
         }
         let mut child_ids = Vec::with_capacity(clen);
         for _ in 0..clen {

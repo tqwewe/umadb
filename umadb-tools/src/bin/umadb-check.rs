@@ -11,7 +11,7 @@ use umadb_core::tags_tree_nodes::{
     TAG_HASH_LEN, TagsLeafNode, get_tag_key_width, normalize_tag_hash_for_current_width,
     set_tag_key_width,
 };
-use umadb_dcb::{DdbError, DcbEvent, DcbQuery, DcbResult};
+use umadb_dcb::{DcbError, DcbEvent, DcbQuery, DcbResult};
 
 fn type_name_from_byte(b: u8) -> Option<&'static str> {
     match b {
@@ -87,7 +87,7 @@ fn parse_args() -> Result<Args, String> {
 fn main() {
     if let Err(e) = real_main() {
         match e {
-            DdbError::InternalError(s) => eprintln!("Error: {}", s),
+            DcbError::InternalError(s) => eprintln!("Error: {}", s),
             other => eprintln!("Error: {}", other),
         }
         std::process::exit(2);
@@ -95,7 +95,7 @@ fn main() {
 }
 
 fn real_main() -> DcbResult<()> {
-    let args = parse_args().map_err(DdbError::InternalError)?;
+    let args = parse_args().map_err(DcbError::InternalError)?;
 
     let path = args.path.unwrap();
     let p = if path.is_dir() {
@@ -106,7 +106,7 @@ fn real_main() -> DcbResult<()> {
 
     // Quick existence check so we can fail fast with a friendly message
     if !p.exists() {
-        return Err(DdbError::InternalError(format!(
+        return Err(DcbError::InternalError(format!(
             "Database file not found: {}",
             p.display()
         )));
@@ -173,10 +173,10 @@ fn real_main() -> DcbResult<()> {
                         let type_str = type_name_from_byte(bytes[0]).unwrap_or("unknown");
                         *counts.entry(type_str).or_insert(0) += 1;
                         let msg = match &err {
-                            DdbError::DeserializationError(_) => {
+                            DcbError::DeserializationError(_) => {
                                 format!("Page {}: {} {:?}", pid, type_str, err)
                             }
-                            DdbError::DatabaseCorrupted(s) => {
+                            DcbError::DatabaseCorrupted(s) => {
                                 format!("Page {}: {} {}", pid, type_str, s)
                             }
                             other => format!("Page {}: {} {:?}", pid, type_str, other),
@@ -289,11 +289,11 @@ fn real_main() -> DcbResult<()> {
                     }
 
                     let msg = match &err {
-                        DdbError::DeserializationError(_) => {
+                        DcbError::DeserializationError(_) => {
                             // Show the variant and message using Debug formatting
                             format!("Page {}: {} {:?}", pid, type_str, err)
                         }
-                        DdbError::DatabaseCorrupted(s) => {
+                        DcbError::DatabaseCorrupted(s) => {
                             // Keep only the human-readable message for corruption
                             format!("Page {}: {} {}", pid, type_str, s)
                         }
@@ -313,7 +313,7 @@ fn real_main() -> DcbResult<()> {
     let reader_file = mvcc.pager.file.clone();
     let file_len = reader_file
         .metadata()
-        .map_err(|e| DdbError::InternalError(format!("Failed to read file metadata: {}", e)))?
+        .map_err(|e| DcbError::InternalError(format!("Failed to read file metadata: {}", e)))?
         .len();
     let page_size_u64 = page_size as u64;
     let mut pid = total_pages; // start at next_page_id
@@ -389,10 +389,10 @@ fn real_main() -> DcbResult<()> {
                     });
                 }
                 let msg = match &err {
-                    DdbError::DeserializationError(_) => {
+                    DcbError::DeserializationError(_) => {
                         format!("Page {}: {} {:?}", pid, type_str, err)
                     }
-                    DdbError::DatabaseCorrupted(s) => format!("Page {}: {} {}", pid, type_str, s),
+                    DcbError::DatabaseCorrupted(s) => format!("Page {}: {} {}", pid, type_str, s),
                     other => format!("Page {}: {} {:?}", pid, type_str, other),
                 };
                 if args.verbose {
@@ -903,7 +903,7 @@ fn real_main() -> DcbResult<()> {
         println!("Integrity: OK");
         Ok(())
     } else {
-        Err(DdbError::InternalError(
+        Err(DcbError::InternalError(
             "Integrity check failed".to_string(),
         ))
     }

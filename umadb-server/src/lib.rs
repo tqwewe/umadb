@@ -16,7 +16,7 @@ use umadb_core::db::{
 };
 use umadb_core::mvcc::Mvcc;
 use umadb_dcb::{
-    DcbAppendCondition, DcbEvent, DcbQuery, DcbResult, DcbSequencedEvent, DdbError, TrackingInfo,
+    DcbAppendCondition, DcbEvent, DcbQuery, DcbResult, DcbSequencedEvent, DcbError, TrackingInfo,
 };
 
 use tokio::runtime::Runtime;
@@ -280,7 +280,7 @@ async fn start_server_internal<P: AsRef<Path> + Send + 'static>(
     let incoming = match TcpIncoming::bind(addr) {
         Ok(incoming) => incoming,
         Err(err) => {
-            return Err(Box::new(DdbError::InitializationError(format!(
+            return Err(Box::new(DcbError::InitializationError(format!(
                 "failed to bind to address {}: {}",
                 addr, err
             ))));
@@ -393,7 +393,7 @@ impl DcbServer {
                 .map(|s| s == expected_val)
                 .unwrap_or(false);
             if !ok {
-                return Err(status_from_dcb_error(DdbError::AuthenticationError(
+                return Err(status_from_dcb_error(DcbError::AuthenticationError(
                     "missing or invalid API key".to_string(),
                 )));
             }
@@ -830,7 +830,7 @@ impl RequestHandler {
 
                             // Track abort state for non-integrity error within the batch
                             let mut abort_idx: Option<usize> = None;
-                            let mut abort_err: Option<DdbError> = None;
+                            let mut abort_err: Option<DcbError> = None;
 
                             responders.push(response_tx);
                             let result = UmaDB::process_append_request(
@@ -999,7 +999,7 @@ impl RequestHandler {
             limit,
             false,
         )
-        .map_err(|e| DdbError::Corruption(format!("{e}")))?;
+        .map_err(|e| DcbError::Corruption(format!("{e}")))?;
 
         let head = if limit.is_none() {
             if last_committed_position == 0 {
@@ -1018,7 +1018,7 @@ impl RequestHandler {
         let (_, header) = self
             .mvcc
             .get_latest_header()
-            .map_err(|e| DdbError::Corruption(format!("{e}")))?;
+            .map_err(|e| DcbError::Corruption(format!("{e}")))?;
         let last = header.next_position.0.saturating_sub(1);
         if last == 0 { Ok(None) } else { Ok(Some(last)) }
     }
@@ -1079,7 +1079,7 @@ impl RequestHandler {
                             given_condition.clone(),
                             matched,
                         );
-                        return Err(DdbError::IntegrityError(msg));
+                        return Err(DcbError::IntegrityError(msg));
                     }
                     Err(err) => {
                         // Propagate underlying read error
@@ -1120,13 +1120,13 @@ impl RequestHandler {
                     })
                     .await
                     .map_err(|_| {
-                        DdbError::Io(std::io::Error::other(
+                        DcbError::Io(std::io::Error::other(
                             "failed to send append request to EventStore thread",
                         ))
                     })?;
 
                 response_rx.await.map_err(|_| {
-                    DdbError::Io(std::io::Error::other(
+                    DcbError::Io(std::io::Error::other(
                         "failed to receive append response from EventStore thread",
                     ))
                 })?

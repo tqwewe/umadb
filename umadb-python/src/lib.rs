@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use umadb_client::{SyncUmaDBClient, UmaDBClient, trigger_cancel};
 use umadb_dcb::{
     DcbAppendCondition, DcbEvent, DcbEventStoreSync, DcbQuery, DcbQueryItem, DcbSequencedEvent,
-    DdbError, TrackingInfo,
+    DcbError, TrackingInfo,
 };
 use uuid::Uuid;
 
@@ -22,14 +22,14 @@ create_exception!(umadb, CorruptionError, PyRuntimeError);
 create_exception!(umadb, AuthenticationError, PyPermissionError);
 
 /// Convert `DcbError` to Python exception
-fn dcb_error_to_py_err(err: DdbError) -> PyErr {
+fn dcb_error_to_py_err(err: DcbError) -> PyErr {
     match err {
-        DdbError::InvalidArgument(msg) => PyValueError::new_err(msg),
-        DdbError::IntegrityError(msg) => IntegrityError::new_err(msg),
-        DdbError::TransportError(msg) => TransportError::new_err(msg),
-        DdbError::Corruption(msg) => CorruptionError::new_err(msg),
-        DdbError::CancelledByUser() => PyKeyboardInterrupt::new_err(()),
-        DdbError::AuthenticationError(msg) => AuthenticationError::new_err(msg),
+        DcbError::InvalidArgument(msg) => PyValueError::new_err(msg),
+        DcbError::IntegrityError(msg) => IntegrityError::new_err(msg),
+        DcbError::TransportError(msg) => TransportError::new_err(msg),
+        DcbError::Corruption(msg) => CorruptionError::new_err(msg),
+        DcbError::CancelledByUser() => PyKeyboardInterrupt::new_err(()),
+        DcbError::AuthenticationError(msg) => AuthenticationError::new_err(msg),
         other => PyException::new_err(format!("{}", other)),
     }
 }

@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 use std::sync::Arc;
 use umadb_dcb::{
     DcbAppendCondition, DcbEvent, DcbEventStoreSync, DcbQuery, DcbReadResponseSync, DcbResult,
-    DcbSequencedEvent, DdbError, TrackingInfo,
+    DcbSequencedEvent, DcbError, TrackingInfo,
 };
 use uuid::Uuid;
 
@@ -67,14 +67,14 @@ impl UmaDB {
                         Err(i) => i,
                     };
                     if idx >= internal.child_ids.len() {
-                        return Err(DdbError::DatabaseCorrupted(
+                        return Err(DcbError::DatabaseCorrupted(
                             "tracking internal child index out of bounds".to_string(),
                         ));
                     }
                     pid = internal.child_ids[idx];
                 }
                 other => {
-                    return Err(DdbError::DatabaseCorrupted(format!(
+                    return Err(DcbError::DatabaseCorrupted(format!(
                         "Invalid tracking node type: {}",
                         other.type_name()
                     )));
@@ -105,7 +105,7 @@ impl UmaDB {
 
         // Track abort state
         let mut abort_idx: Option<usize> = None;
-        let mut abort_err: Option<DdbError> = None;
+        let mut abort_err: Option<DcbError> = None;
 
         for (idx, (events, condition, tracking)) in items.drain(..).enumerate() {
             if abort_idx.is_some() {
@@ -190,7 +190,7 @@ impl UmaDB {
                                     cond.clone(),
                                     matched,
                                 );
-                                Err(DdbError::IntegrityError(msg))
+                                Err(DcbError::IntegrityError(msg))
                             }
                             Err(err) => {
                                 // Propagate the error for this item but continue with others
@@ -320,7 +320,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
     // Enforce maximum key length (1-byte length field in tracking nodes)
     let key_len = source.len();
     if key_len > u8::MAX as usize {
-        return Err(DdbError::InvalidArgument(format!(
+        return Err(DcbError::InvalidArgument(format!(
             "tracking source too long ({} > 255)",
             key_len
         )));
@@ -351,7 +351,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
             Node::TrackingInternal(internal) => {
                 let child_idx = internal.child_index_for_key(source);
                 if child_idx >= internal.child_ids.len() {
-                    return Err(DdbError::DatabaseCorrupted(
+                    return Err(DcbError::DatabaseCorrupted(
                         "tracking internal child index out of bounds".to_string(),
                     ));
                 }
@@ -360,7 +360,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
                 current_id = next;
             }
             other => {
-                return Err(DdbError::DatabaseCorrupted(format!(
+                return Err(DcbError::DatabaseCorrupted(format!(
                     "Invalid tracking node type: {}",
                     other.type_name()
                 )));
@@ -372,14 +372,14 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
     {
         let page = writer.get_page_ref(mvcc, current_id)?;
         let Node::TrackingLeaf(leaf) = &page.node else {
-            return Err(DdbError::DatabaseCorrupted(
+            return Err(DcbError::DatabaseCorrupted(
                 "Expected TrackingLeaf".to_string(),
             ));
         };
         if let Some(existing) = leaf.get(source)
             && pos.0 <= existing.0
         {
-            return Err(DdbError::IntegrityError(format!(
+            return Err(DcbError::IntegrityError(format!(
                 "non-increasing tracking position for source '{source}': {} <= {}",
                 pos.0, existing.0
             )));
@@ -400,7 +400,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
         // First, insert/update within a limited scope to end the mutable borrow before size checks
         {
             let Node::TrackingLeaf(ref mut node) = leaf_page.node else {
-                return Err(DdbError::DatabaseCorrupted(
+                return Err(DcbError::DatabaseCorrupted(
                     "Dirty tracking page not a leaf".to_string(),
                 ));
             };
@@ -418,12 +418,12 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
             let right_id: PageID;
             {
                 let Node::TrackingLeaf(ref mut node) = leaf_page.node else {
-                    return Err(DdbError::DatabaseCorrupted(
+                    return Err(DcbError::DatabaseCorrupted(
                         "Dirty tracking page not a leaf".to_string(),
                     ));
                 };
                 if node.keys.len() < 2 {
-                    return Err(DdbError::DatabaseCorrupted(
+                    return Err(DcbError::DatabaseCorrupted(
                         "Cannot split tracking leaf with too few keys".to_string(),
                     ));
                 }
@@ -432,7 +432,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
                 let right_vals = node.values.split_off(mid);
                 promoted_key = right_keys
                     .first()
-                    .ok_or_else(|| DdbError::DatabaseCorrupted("empty right split".to_string()))?
+                    .ok_or_else(|| DcbError::DatabaseCorrupted("empty right split".to_string()))?
                     .clone();
                 let right_leaf = TrackingLeafNode {
                     keys: right_keys,
@@ -457,7 +457,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
         if let Some((old_id, new_id)) = replacement_info.take() {
             let parent_page = writer.get_mut_dirty(dirty_parent_id)?;
             let Node::TrackingInternal(ref mut internal) = parent_page.node else {
-                return Err(DdbError::DatabaseCorrupted(
+                return Err(DcbError::DatabaseCorrupted(
                     "Expected TrackingInternal".to_string(),
                 ));
             };
@@ -470,7 +470,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
             {
                 let parent_page = writer.get_mut_dirty(dirty_parent_id)?;
                 let Node::TrackingInternal(ref mut internal) = parent_page.node else {
-                    return Err(DdbError::DatabaseCorrupted(
+                    return Err(DcbError::DatabaseCorrupted(
                         "Expected TrackingInternal".to_string(),
                     ));
                 };
@@ -481,7 +481,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
                 // Reborrow mutably to perform the split
                 let parent_page = writer.get_mut_dirty(dirty_parent_id)?;
                 let Node::TrackingInternal(ref mut internal) = parent_page.node else {
-                    return Err(DdbError::DatabaseCorrupted(
+                    return Err(DcbError::DatabaseCorrupted(
                         "Expected TrackingInternal".to_string(),
                     ));
                 };
@@ -507,7 +507,7 @@ fn tracking_upsert(mvcc: &Mvcc, writer: &mut Writer, source: &str, pos: Position
         if writer.tracking_tree_root_id == old_id {
             writer.tracking_tree_root_id = new_id;
         } else {
-            return Err(DdbError::RootIDMismatch(old_id.0, new_id.0));
+            return Err(DcbError::RootIDMismatch(old_id.0, new_id.0));
         }
     }
 
@@ -964,53 +964,53 @@ pub fn is_request_idempotent(
 }
 
 // --- helpers for append_batch abort policy ---
-pub fn is_integrity_error(e: &DdbError) -> bool {
-    matches!(e, DdbError::IntegrityError(_))
+pub fn is_integrity_error(e: &DcbError) -> bool {
+    matches!(e, DcbError::IntegrityError(_))
 }
 
-pub fn clone_dcb_error(src: &DdbError) -> DdbError {
+pub fn clone_dcb_error(src: &DcbError) -> DcbError {
     match src {
-        DdbError::AuthenticationError(err) => DdbError::AuthenticationError(err.to_string()),
-        DdbError::InitializationError(err) => DdbError::InitializationError(err.to_string()),
-        DdbError::Io(err) => DdbError::Io(std::io::Error::other(err.to_string())),
-        DdbError::IntegrityError(s) => DdbError::IntegrityError(s.clone()),
-        DdbError::Corruption(s) => DdbError::Corruption(s.clone()),
-        DdbError::InvalidArgument(s) => DdbError::InvalidArgument(s.clone()),
-        DdbError::PageNotFound(id) => DdbError::PageNotFound(*id),
-        DdbError::DirtyPageNotFound(id) => DdbError::DirtyPageNotFound(*id),
-        DdbError::RootIDMismatch(old_id, new_id) => DdbError::RootIDMismatch(*old_id, *new_id),
-        DdbError::DatabaseCorrupted(s) => DdbError::DatabaseCorrupted(s.clone()),
-        DdbError::InternalError(s) => DdbError::InternalError(s.clone()),
-        DdbError::SerializationError(s) => DdbError::SerializationError(s.clone()),
-        DdbError::DeserializationError(s) => DdbError::DeserializationError(s.clone()),
-        DdbError::PageAlreadyFreed(id) => DdbError::PageAlreadyFreed(*id),
-        DdbError::PageAlreadyDirty(id) => DdbError::PageAlreadyDirty(*id),
-        DdbError::TransportError(err) => DdbError::TransportError(err.clone()),
-        DdbError::CancelledByUser() => DdbError::CancelledByUser(),
+        DcbError::AuthenticationError(err) => DcbError::AuthenticationError(err.to_string()),
+        DcbError::InitializationError(err) => DcbError::InitializationError(err.to_string()),
+        DcbError::Io(err) => DcbError::Io(std::io::Error::other(err.to_string())),
+        DcbError::IntegrityError(s) => DcbError::IntegrityError(s.clone()),
+        DcbError::Corruption(s) => DcbError::Corruption(s.clone()),
+        DcbError::InvalidArgument(s) => DcbError::InvalidArgument(s.clone()),
+        DcbError::PageNotFound(id) => DcbError::PageNotFound(*id),
+        DcbError::DirtyPageNotFound(id) => DcbError::DirtyPageNotFound(*id),
+        DcbError::RootIDMismatch(old_id, new_id) => DcbError::RootIDMismatch(*old_id, *new_id),
+        DcbError::DatabaseCorrupted(s) => DcbError::DatabaseCorrupted(s.clone()),
+        DcbError::InternalError(s) => DcbError::InternalError(s.clone()),
+        DcbError::SerializationError(s) => DcbError::SerializationError(s.clone()),
+        DcbError::DeserializationError(s) => DcbError::DeserializationError(s.clone()),
+        DcbError::PageAlreadyFreed(id) => DcbError::PageAlreadyFreed(*id),
+        DcbError::PageAlreadyDirty(id) => DcbError::PageAlreadyDirty(*id),
+        DcbError::TransportError(err) => DcbError::TransportError(err.clone()),
+        DcbError::CancelledByUser() => DcbError::CancelledByUser(),
     }
 }
 
-pub fn shadow_for_batch_abort(src: &DdbError) -> DdbError {
+pub fn shadow_for_batch_abort(src: &DcbError) -> DcbError {
     let msg = "batch aborted due to internal error".to_string();
     match src {
-        DdbError::AuthenticationError(_) => DdbError::AuthenticationError(msg),
-        DdbError::InitializationError(_) => DdbError::InitializationError(msg),
-        DdbError::Io(_) => DdbError::Io(std::io::Error::other(msg)),
-        DdbError::IntegrityError(_) => DdbError::IntegrityError(msg),
-        DdbError::Corruption(_) => DdbError::Corruption(msg),
-        DdbError::InvalidArgument(_) => DdbError::InvalidArgument(msg),
-        DdbError::DatabaseCorrupted(_) => DdbError::DatabaseCorrupted(msg),
-        DdbError::InternalError(_) => DdbError::InternalError(msg),
-        DdbError::SerializationError(_) => DdbError::SerializationError(msg),
-        DdbError::DeserializationError(_) => DdbError::DeserializationError(msg),
-        DdbError::TransportError(_) => DdbError::TransportError(msg),
+        DcbError::AuthenticationError(_) => DcbError::AuthenticationError(msg),
+        DcbError::InitializationError(_) => DcbError::InitializationError(msg),
+        DcbError::Io(_) => DcbError::Io(std::io::Error::other(msg)),
+        DcbError::IntegrityError(_) => DcbError::IntegrityError(msg),
+        DcbError::Corruption(_) => DcbError::Corruption(msg),
+        DcbError::InvalidArgument(_) => DcbError::InvalidArgument(msg),
+        DcbError::DatabaseCorrupted(_) => DcbError::DatabaseCorrupted(msg),
+        DcbError::InternalError(_) => DcbError::InternalError(msg),
+        DcbError::SerializationError(_) => DcbError::SerializationError(msg),
+        DcbError::DeserializationError(_) => DcbError::DeserializationError(msg),
+        DcbError::TransportError(_) => DcbError::TransportError(msg),
         // For numeric/marker variants, we cannot add a message; keep same variant to preserve type
-        DdbError::PageNotFound(id) => DdbError::PageNotFound(*id),
-        DdbError::DirtyPageNotFound(id) => DdbError::DirtyPageNotFound(*id),
-        DdbError::RootIDMismatch(a, b) => DdbError::RootIDMismatch(*a, *b),
-        DdbError::PageAlreadyFreed(id) => DdbError::PageAlreadyFreed(*id),
-        DdbError::PageAlreadyDirty(id) => DdbError::PageAlreadyDirty(*id),
-        DdbError::CancelledByUser() => DdbError::CancelledByUser(),
+        DcbError::PageNotFound(id) => DcbError::PageNotFound(*id),
+        DcbError::DirtyPageNotFound(id) => DcbError::DirtyPageNotFound(*id),
+        DcbError::RootIDMismatch(a, b) => DcbError::RootIDMismatch(*a, *b),
+        DcbError::PageAlreadyFreed(id) => DcbError::PageAlreadyFreed(*id),
+        DcbError::PageAlreadyDirty(id) => DcbError::PageAlreadyDirty(*id),
+        DcbError::CancelledByUser() => DcbError::CancelledByUser(),
     }
 }
 
@@ -1022,7 +1022,7 @@ mod tests {
     use std::collections::HashMap;
     use tempfile::tempdir;
     use umadb_dcb::{
-        DcbAppendCondition, DcbEvent, DcbEventStoreSync, DcbQuery, DcbQueryItem, DdbError,
+        DcbAppendCondition, DcbEvent, DcbEventStoreSync, DcbQuery, DcbQueryItem, DcbError,
     };
     use uuid::Uuid;
 
@@ -1056,7 +1056,7 @@ mod tests {
             )
             .unwrap_err();
         match err {
-            DdbError::InvalidArgument(msg) => assert!(msg.contains("too long")),
+            DcbError::InvalidArgument(msg) => assert!(msg.contains("too long")),
             other => panic!("unexpected error: {:?}", other),
         }
     }
@@ -1221,7 +1221,7 @@ mod tests {
             .err()
             .expect("expected error");
         match err {
-            DdbError::IntegrityError(msg) => {
+            DcbError::IntegrityError(msg) => {
                 assert!(msg.contains("non-increasing tracking position"))
             }
             other => panic!("unexpected error: {:?}", other),
@@ -1836,7 +1836,7 @@ mod tests {
             None,
         );
         match res {
-            Err(DdbError::IntegrityError(_)) => {}
+            Err(DcbError::IntegrityError(_)) => {}
             other => panic!("Expected IntegrityError, got {:?}", other),
         }
         // Ensure head unchanged after failed append
@@ -1899,7 +1899,7 @@ mod tests {
         // Second item should fail integrity
         match &results[1] {
             Ok(pos) => panic!("expected integrity error, got Ok({})", pos),
-            Err(e) => assert!(matches!(e, DdbError::IntegrityError(_))),
+            Err(e) => assert!(matches!(e, DcbError::IntegrityError(_))),
         }
         // Third item should succeed with last position 2 (since second didn't append)
         match &results[2] {
@@ -1979,7 +1979,7 @@ mod tests {
         }
         match &results[1] {
             Ok(pos) => panic!("expected integrity error, got Ok({})", pos),
-            Err(e) => assert!(matches!(e, DdbError::IntegrityError(_))),
+            Err(e) => assert!(matches!(e, DcbError::IntegrityError(_))),
         }
         match &results[2] {
             Ok(pos) => assert_eq!(*pos, 2),
@@ -2095,7 +2095,7 @@ mod tests {
             other => panic!("unexpected for item0: {:?}", other),
         }
         match &results[1] {
-            Err(DdbError::IntegrityError(_)) => {}
+            Err(DcbError::IntegrityError(_)) => {}
             other => {
                 panic!("expected IntegrityError for item1, got {:?}", other)
             }
@@ -2105,7 +2105,7 @@ mod tests {
             other => panic!("unexpected for item2: {:?}", other),
         }
         match &results[3] {
-            Err(DdbError::IntegrityError(_)) => {}
+            Err(DcbError::IntegrityError(_)) => {}
             other => {
                 panic!("expected IntegrityError for item3, got {:?}", other)
             }
@@ -2234,7 +2234,7 @@ mod tests {
             other => panic!("unexpected for item0: {:?}", other),
         }
         match &results[1] {
-            Err(DdbError::IntegrityError(_)) => {}
+            Err(DcbError::IntegrityError(_)) => {}
             other => {
                 panic!("expected IntegrityError for item1, got {:?}", other)
             }
@@ -2244,7 +2244,7 @@ mod tests {
             other => panic!("unexpected for item2: {:?}", other),
         }
         match &results[3] {
-            Err(DdbError::IntegrityError(_)) => {}
+            Err(DcbError::IntegrityError(_)) => {}
             other => {
                 panic!("expected IntegrityError for item3, got {:?}", other)
             }
@@ -2368,7 +2368,7 @@ mod tests {
 
         // Try with event2 and condition1 - should get an error.
         let result = store.append(vec![event2.clone()], condition1.clone(), None);
-        assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+        assert!(matches!(result, Err(DcbError::IntegrityError(_))));
 
         // Try with two events in different order - should get an error.
         let result = store.append(
@@ -2376,7 +2376,7 @@ mod tests {
             condition1.clone(),
             None,
         );
-        assert!(matches!(result, Err(DdbError::IntegrityError(_))));
+        assert!(matches!(result, Err(DcbError::IntegrityError(_))));
     }
 
     #[test]

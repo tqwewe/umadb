@@ -1,7 +1,7 @@
 use crate::common::PageID;
 use crate::node::Node;
 use std::ops::Range;
-use umadb_dcb::{DdbError, DcbResult};
+use umadb_dcb::{DcbError, DcbResult};
 
 // Page structure
 #[derive(Debug, Clone)]
@@ -37,7 +37,7 @@ impl Page {
     #[inline]
     pub fn deserialize(page_id: PageID, page_data: &[u8]) -> DcbResult<Self> {
         if page_data.len() < PAGE_HEADER_SIZE {
-            return Err(DdbError::DatabaseCorrupted(
+            return Err(DcbError::DatabaseCorrupted(
                 "Page data too short".to_string(),
             ));
         }
@@ -50,7 +50,7 @@ impl Page {
             u32::from_le_bytes(header[HEADER_LAYOUT_BODY_LEN_BYTES].try_into().unwrap()) as usize;
 
         if PAGE_HEADER_SIZE + data_len > page_data.len() {
-            return Err(DdbError::DatabaseCorrupted(
+            return Err(DcbError::DatabaseCorrupted(
                 "Page data length mismatch".to_string(),
             ));
         }
@@ -62,7 +62,7 @@ impl Page {
         let calculated_crc = calc_crc(data);
 
         if calculated_crc != crc {
-            return Err(DdbError::DatabaseCorrupted(format!(
+            return Err(DcbError::DatabaseCorrupted(format!(
                 "CRC mismatch (page ID: {page_id:?})"
             )));
         }

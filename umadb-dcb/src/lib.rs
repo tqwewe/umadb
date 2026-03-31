@@ -339,7 +339,7 @@ pub struct DcbSequencedEvent {
 // Error types
 #[derive(Error, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum DdbError {
+pub enum DcbError {
     // Generic/system errors
     #[error("io error: {0}")]
     #[cfg_attr(feature = "serde", serde(with = "serde_io_error"))]
@@ -385,7 +385,7 @@ pub enum DdbError {
     AuthenticationError(String),
 }
 
-pub type DcbResult<T> = Result<T, DdbError>;
+pub type DcbResult<T> = Result<T, DcbError>;
 
 #[cfg(feature = "serde")]
 mod serde_io_error {

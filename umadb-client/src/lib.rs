@@ -13,9 +13,9 @@ use tonic::transport::{Certificate, Channel, ClientTlsConfig, Endpoint};
 
 use tokio::runtime::{Handle, Runtime};
 use umadb_dcb::{
-    DcbAppendCondition, DcbEvent, DcbEventStoreAsync, DcbEventStoreSync, DcbQuery,
+    DcbAppendCondition, DcbError, DcbEvent, DcbEventStoreAsync, DcbEventStoreSync, DcbQuery,
     DcbReadResponseAsync, DcbReadResponseSync, DcbResult, DcbSequencedEvent, DcbSubscriptionAsync,
-    DcbSubscriptionSync, DdbError, TrackingInfo,
+    DcbSubscriptionSync, TrackingInfo,
 };
 
 use std::sync::{Once, OnceLock};
@@ -443,19 +443,19 @@ impl AsyncUmaDBClient {
                 tls_enabled,
                 api_key,
             }),
-            Err(err) => Err(DdbError::TransportError(format!("{err}"))),
+            Err(err) => Err(DcbError::TransportError(format!("{err}"))),
         }
     }
 
     fn add_auth<T>(&self, mut req: Request<T>) -> DcbResult<Request<T>> {
         if let Some(key) = &self.api_key {
             if !self.tls_enabled {
-                return Err(DdbError::TransportError(
+                return Err(DcbError::TransportError(
                     "API key configured but TLS is not enabled; refusing to send credentials over insecure channel".to_string(),
                 ));
             }
             let token = MetadataValue::from_str(&format!("Bearer {}", key))
-                .map_err(|e| DdbError::TransportError(format!("invalid API key: {}", e)))?;
+                .map_err(|e| DcbError::TransportError(format!("invalid API key: {}", e)))?;
             req.metadata_mut().insert("authorization", token);
         }
         Ok(req)
@@ -578,7 +578,7 @@ impl AsyncClientReadResponse {
             _ = self.cancel.changed() => {
                 self.ended = true;
                 // return Ok(());
-                return Err(DdbError::CancelledByUser());
+                return Err(DcbError::CancelledByUser());
             }
             msg = self.stream.message() => {
                 match msg {
@@ -716,7 +716,7 @@ impl AsyncClientSubscribeResponse {
         tokio::select! {
             _ = self.cancel.changed() => {
                 self.ended = true;
-                return Err(DdbError::CancelledByUser());
+                return Err(DcbError::CancelledByUser());
             }
             msg = self.stream.message() => {
                 match msg {

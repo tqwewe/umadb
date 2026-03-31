@@ -59,7 +59,7 @@ fn append_batch_with_per_item_tracking_enforces_monotonicity() {
     }
     // 2) Err(IntegrityError)
     match &results[1] {
-        Err(e) => assert!(matches!(e, umadb_dcb::DdbError::IntegrityError(_))),
+        Err(e) => assert!(matches!(e, umadb_dcb::DcbError::IntegrityError(_))),
         other => panic!("expected IntegrityError, got {:?}", other),
     }
     // 3) Ok(last = 2)

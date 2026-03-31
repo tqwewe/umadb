@@ -5,7 +5,7 @@ use rcgen::generate_simple_self_signed;
 use tempfile::tempdir;
 use tokio::time::sleep;
 use umadb_client::{AsyncUmaDBClient, ClientTlsOptions, UmaDBClient};
-use umadb_dcb::{DdbError, DcbEvent, DcbEventStoreAsync};
+use umadb_dcb::{DcbError, DcbEvent, DcbEventStoreAsync};
 use umadb_server::start_server_secure_with_api_key;
 
 // Helper to pick a free localhost port
@@ -162,7 +162,7 @@ async fn api_key_wrong_fails_over_tls() {
     // Calls should fail with Unauthenticated mapped to TransportError/Io (depending on mapping)
     let err = client.head().await.err().expect("head should fail");
     match err {
-        DdbError::AuthenticationError(_) => {}
+        DcbError::AuthenticationError(_) => {}
         other => panic!("unexpected error type: {:?}", other),
     }
 
@@ -183,7 +183,7 @@ async fn api_key_rejected_over_insecure_http() {
             .err()
             .expect("head must fail due to insecure");
         match err {
-            DdbError::TransportError(msg) => assert!(msg.contains("TLS")),
+            DcbError::TransportError(msg) => assert!(msg.contains("TLS")),
             other => panic!("unexpected error type: {:?}", other),
         }
     }

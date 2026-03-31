@@ -5,7 +5,7 @@ use crate::free_lists_tree_nodes::{
 use crate::header_node::HeaderNode;
 use crate::tags_tree_nodes::{TagInternalNode, TagLeafNode, TagsInternalNode, TagsLeafNode};
 use crate::tracking_tree_nodes::{TrackingInternalNode, TrackingLeafNode};
-use umadb_dcb::{DdbError, DcbResult};
+use umadb_dcb::{DcbError, DcbResult};
 
 // Constants for serialization
 const PAGE_TYPE_HEADER: u8 = b'1';
@@ -222,7 +222,7 @@ impl Node {
                 let node = TrackingInternalNode::from_slice(data)?;
                 Ok(Node::TrackingInternal(node))
             }
-            _ => Err(DdbError::DatabaseCorrupted(format!(
+            _ => Err(DcbError::DatabaseCorrupted(format!(
                 "Invalid node type: {node_type}"
             ))),
         }

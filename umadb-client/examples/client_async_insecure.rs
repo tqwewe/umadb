@@ -1,7 +1,7 @@
 use futures::StreamExt;
 use umadb_client::UmaDBClient;
 use umadb_dcb::{
-    DcbAppendCondition, DdbError, DcbEvent, DcbEventStoreAsync, DcbQuery, DcbQueryItem,
+    DcbAppendCondition, DcbError, DcbEvent, DcbEventStoreAsync, DcbQuery, DcbQueryItem,
     TrackingInfo,
 };
 use uuid::Uuid;
@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Expect an integrity error
     match conflicting_result {
-        Err(DdbError::IntegrityError(integrity_error)) => {
+        Err(DcbError::IntegrityError(integrity_error)) => {
             println!("Conflicting event was rejected: {:?}", integrity_error);
         }
         other => panic!("Expected IntegrityError, got {:?}", other),
@@ -148,7 +148,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Expect an integrity error
     match conflicting_result {
-        Err(DdbError::IntegrityError(integrity_error)) => {
+        Err(DcbError::IntegrityError(integrity_error)) => {
             println!(
                 "Conflicting upstream position was rejected: {:?}",
                 integrity_error
