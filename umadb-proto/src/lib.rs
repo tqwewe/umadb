@@ -2,7 +2,7 @@ use prost::Message;
 use prost::bytes::Bytes;
 use tonic::{Code, Status};
 use umadb_dcb::{
-    DCBAppendCondition, DCBError, DCBEvent, DCBQuery, DCBQueryItem, DCBResult, DCBSequencedEvent,
+    DcbAppendCondition, DdbError, DcbEvent, DcbQuery, DcbQueryItem, DcbResult, DcbSequencedEvent,
     TrackingInfo,
 };
 use uuid::Uuid;
@@ -32,24 +32,24 @@ impl From<TrackingInfo> for v1::TrackingInfo {
     }
 }
 
-impl TryFrom<v1::Event> for DCBEvent {
-    type Error = DCBError;
+impl TryFrom<v1::Event> for DcbEvent {
+    type Error = DdbError;
 
-    fn try_from(proto: v1::Event) -> DCBResult<Self> {
+    fn try_from(proto: v1::Event) -> DcbResult<Self> {
         let uuid = if proto.uuid.is_empty() {
             None
         } else {
             match Uuid::parse_str(&proto.uuid) {
                 Ok(uuid) => Some(uuid),
                 Err(_) => {
-                    return Err(DCBError::DeserializationError(
+                    return Err(DdbError::DeserializationError(
                         "Invalid UUID in Event".to_string(),
                     ));
                 }
             }
         };
 
-        Ok(DCBEvent {
+        Ok(DcbEvent {
             event_type: proto.event_type,
             tags: proto.tags,
             data: proto.data,
@@ -58,8 +58,8 @@ impl TryFrom<v1::Event> for DCBEvent {
     }
 }
 
-impl From<DCBEvent> for v1::Event {
-    fn from(event: DCBEvent) -> Self {
+impl From<DcbEvent> for v1::Event {
+    fn from(event: DcbEvent) -> Self {
         v1::Event {
             event_type: event.event_type,
             tags: event.tags,
@@ -69,17 +69,17 @@ impl From<DCBEvent> for v1::Event {
     }
 }
 
-impl From<v1::QueryItem> for DCBQueryItem {
+impl From<v1::QueryItem> for DcbQueryItem {
     fn from(proto: v1::QueryItem) -> Self {
-        DCBQueryItem {
+        DcbQueryItem {
             types: proto.types,
             tags: proto.tags,
         }
     }
 }
 
-impl From<DCBQueryItem> for v1::QueryItem {
-    fn from(item: DCBQueryItem) -> Self {
+impl From<DcbQueryItem> for v1::QueryItem {
+    fn from(item: DcbQueryItem) -> Self {
         v1::QueryItem {
             types: item.types,
             tags: item.tags,
@@ -87,35 +87,35 @@ impl From<DCBQueryItem> for v1::QueryItem {
     }
 }
 
-impl From<v1::Query> for DCBQuery {
+impl From<v1::Query> for DcbQuery {
     fn from(proto: v1::Query) -> Self {
-        DCBQuery {
+        DcbQuery {
             items: proto.items.into_iter().map(|item| item.into()).collect(),
         }
     }
 }
 
-impl From<DCBQuery> for v1::Query {
-    fn from(query: DCBQuery) -> Self {
+impl From<DcbQuery> for v1::Query {
+    fn from(query: DcbQuery) -> Self {
         v1::Query {
             items: query.items.into_iter().map(|item| item.into()).collect(),
         }
     }
 }
 
-impl From<v1::AppendCondition> for DCBAppendCondition {
+impl From<v1::AppendCondition> for DcbAppendCondition {
     fn from(proto: v1::AppendCondition) -> Self {
-        DCBAppendCondition {
+        DcbAppendCondition {
             fail_if_events_match: proto
                 .fail_if_events_match
-                .map_or_else(DCBQuery::default, |q| q.into()),
+                .map_or_else(DcbQuery::default, |q| q.into()),
             after: proto.after,
         }
     }
 }
 
-impl From<DCBSequencedEvent> for v1::SequencedEvent {
-    fn from(event: DCBSequencedEvent) -> Self {
+impl From<DcbSequencedEvent> for v1::SequencedEvent {
+    fn from(event: DcbSequencedEvent) -> Self {
         v1::SequencedEvent {
             position: event.position,
             event: Some(event.event.into()),
@@ -124,31 +124,31 @@ impl From<DCBSequencedEvent> for v1::SequencedEvent {
 }
 
 // Helper: map DCBError -> tonic::Status with structured details
-pub fn status_from_dcb_error(e: DCBError) -> Status {
+pub fn status_from_dcb_error(e: DdbError) -> Status {
     let (code, error_type) = match e {
-        DCBError::AuthenticationError(_) => (
+        DdbError::AuthenticationError(_) => (
             Code::Unauthenticated,
             v1::error_response::ErrorType::Authentication as i32,
         ),
-        DCBError::InvalidArgument(_) => (
+        DdbError::InvalidArgument(_) => (
             Code::InvalidArgument,
             v1::error_response::ErrorType::InvalidArgument as i32,
         ),
-        DCBError::IntegrityError(_) => (
+        DdbError::IntegrityError(_) => (
             Code::FailedPrecondition,
             v1::error_response::ErrorType::Integrity as i32,
         ),
-        DCBError::Corruption(_)
-        | DCBError::DatabaseCorrupted(_)
-        | DCBError::DeserializationError(_) => (
+        DdbError::Corruption(_)
+        | DdbError::DatabaseCorrupted(_)
+        | DdbError::DeserializationError(_) => (
             Code::DataLoss,
             v1::error_response::ErrorType::Corruption as i32,
         ),
-        DCBError::SerializationError(_) => (
+        DdbError::SerializationError(_) => (
             Code::InvalidArgument,
             v1::error_response::ErrorType::Serialization as i32,
         ),
-        DCBError::InternalError(_) => (
+        DdbError::InternalError(_) => (
             Code::Internal,
             v1::error_response::ErrorType::Internal as i32,
         ),
@@ -164,7 +164,7 @@ pub fn status_from_dcb_error(e: DCBError) -> Status {
 }
 
 // Helper: map tonic::Status -> DCBError by decoding details
-pub fn dcb_error_from_status(status: Status) -> DCBError {
+pub fn dcb_error_from_status(status: Status) -> DdbError {
     let details = status.details();
     // Try to decode ErrorResponse directly from details
     if !details.is_empty()
@@ -172,33 +172,33 @@ pub fn dcb_error_from_status(status: Status) -> DCBError {
     {
         return match err.error_type {
             x if x == v1::error_response::ErrorType::Authentication as i32 => {
-                DCBError::AuthenticationError(err.message)
+                DdbError::AuthenticationError(err.message)
             }
             x if x == v1::error_response::ErrorType::InvalidArgument as i32 => {
-                DCBError::InvalidArgument(err.message)
+                DdbError::InvalidArgument(err.message)
             }
             x if x == v1::error_response::ErrorType::Integrity as i32 => {
-                DCBError::IntegrityError(err.message)
+                DdbError::IntegrityError(err.message)
             }
             x if x == v1::error_response::ErrorType::Corruption as i32 => {
-                DCBError::Corruption(err.message)
+                DdbError::Corruption(err.message)
             }
             x if x == v1::error_response::ErrorType::Serialization as i32 => {
-                DCBError::SerializationError(err.message)
+                DdbError::SerializationError(err.message)
             }
             x if x == v1::error_response::ErrorType::Internal as i32 => {
-                DCBError::InternalError(err.message)
+                DdbError::InternalError(err.message)
             }
-            _ => DCBError::Io(std::io::Error::other(err.message)),
+            _ => DdbError::Io(std::io::Error::other(err.message)),
         };
     }
     // Fallback: infer from gRPC code
     match status.code() {
-        Code::Unauthenticated => DCBError::AuthenticationError(status.message().to_string()),
-        Code::InvalidArgument => DCBError::InvalidArgument(status.message().to_string()),
-        Code::FailedPrecondition => DCBError::IntegrityError(status.message().to_string()),
-        Code::DataLoss => DCBError::Corruption(status.message().to_string()),
-        Code::Internal => DCBError::InternalError(status.message().to_string()),
-        _ => DCBError::Io(std::io::Error::other(format!("gRPC error: {}", status))),
+        Code::Unauthenticated => DdbError::AuthenticationError(status.message().to_string()),
+        Code::InvalidArgument => DdbError::InvalidArgument(status.message().to_string()),
+        Code::FailedPrecondition => DdbError::IntegrityError(status.message().to_string()),
+        Code::DataLoss => DdbError::Corruption(status.message().to_string()),
+        Code::Internal => DdbError::InternalError(status.message().to_string()),
+        _ => DdbError::Io(std::io::Error::other(format!("gRPC error: {}", status))),
     }
 }
